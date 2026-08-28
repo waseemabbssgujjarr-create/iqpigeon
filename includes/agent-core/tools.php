@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 1 read-only tools. Mutating cart/order/booking/qualification/memory.write are rejected.
+ * Read-only tools. Mutating cart/order/booking/qualification/memory.write are rejected.
  *
  * @return array{ok: bool, name: string, data: mixed, error?: string}
  */
@@ -31,7 +31,8 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
         return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'unknown_or_not_phase1'];
     }
 
-    $botId = (int) ($turnCtx['bot_id'] ?? 0);
+    $bot = is_array($turnCtx['bot'] ?? null) ? $turnCtx['bot'] : [];
+    $botId = (int) ($turnCtx['bot_id'] ?? $bot['id'] ?? 0);
     $leadId = (int) ($turnCtx['lead_id'] ?? 0);
     $query = trim((string) ($args['query'] ?? $turnCtx['text'] ?? ''));
 
@@ -65,6 +66,18 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
             $facts = agent_core_memory_read($botId, $leadId, $query);
 
             return ['ok' => true, 'name' => $name, 'data' => $facts];
+        }
+        if ($name === 'hours.read') {
+            require_once dirname(__DIR__) . '/conversation-runtime-memory.php';
+            $hours = conversation_runtime_hours_now($bot !== [] ? $bot : ['id' => $botId]);
+
+            return ['ok' => true, 'name' => $name, 'data' => $hours];
+        }
+        if ($name === 'orders.read') {
+            require_once dirname(__DIR__) . '/conversation-runtime-memory.php';
+            $orders = conversation_runtime_load_orders($botId, $leadId);
+
+            return ['ok' => true, 'name' => $name, 'data' => $orders];
         }
         if ($name === 'live_web.search') {
             if (!empty($GLOBALS['agent_core_no_network'])) {

@@ -1,6 +1,7 @@
 <?php
 /**
- * Agent Core entry — planning only. Does not ACK, debounce, Graph-send, or write RESPONSE_SENT.
+ * Agent Core entry — plan + read-only tools, then conversation_mind_generate.
+ * Does not ACK, debounce, Graph-send, or write RESPONSE_SENT.
  */
 declare(strict_types=1);
 
@@ -35,21 +36,56 @@ function agent_core_reply(array $bot, int $leadId, string $userMessage, int $tur
  */
 function agent_core_run(array $ctx): array
 {
-    $empty = [
-        'ok'           => false,
-        'reply'        => '',
-        'path'         => 'agent_core',
-        'intent'       => [],
-        'plan'         => [],
-        'tool_results' => [],
-        'retryable'    => false,
-        'error'        => null,
-    ];
+    $fail = static function (
+        ?string $error = null,
+        bool $retryable = false,
+        array $intent = [],
+        array $plan = [],
+        array $toolResults = []
+    ): array {
+        return [
+            'ok'           => false,
+            'reply'        => '',
+            'path'         => 'agent_core',
+            'intent'       => $intent,
+            'plan'         => $plan,
+            'tool_results' => $toolResults,
+            'retryable'    => $retryable,
+            'error'        => $error,
+        ];
+    };
 
     try {
+        if (!empty($GLOBALS['agent_core_test_throw'])) {
+            throw new RuntimeException('test_forced_core_failure');
+        }
+
         $bot = is_array($ctx['bot'] ?? null) ? $ctx['bot'] : [];
-        $conv = agent_core_conversation_context($ctx);
-        $pack = agent_core_knowledge_pack($bot !== [] ? $bot : ['id' => (int) ($ctx['bot_id'] ?? 0)]);
+        if (!empty($GLOBALS['agent_core_no_network'])) {
+            $conv = [
+                'history'         => is_array($ctx['history'] ?? null) ? $ctx['history'] : [],
+                'last_assistant'  => (string) ($ctx['last_assistant'] ?? ''),
+                'last_user'       => (string) ($ctx['last_user'] ?? ''),
+                'referents'       => is_array($ctx['referents'] ?? null) ? $ctx['referents'] : ['product' => ''],
+                'missed_thought'  => (string) ($ctx['missed_thought'] ?? ''),
+                'runtime_facts'   => [],
+                'mind_mode'       => 'FOLLOW_UP',
+                'personal_facts'  => [],
+                'business_facts'  => [],
+                'summary'         => '',
+            ];
+            $pack = [
+                'prompt'         => '',
+                'rep'            => (string) (($ctx['profile']['rep'] ?? 'I')),
+                'brand'          => (string) (($ctx['profile']['brand'] ?? 'us')),
+                'capabilities'   => is_array($ctx['profile']['capabilities'] ?? null) ? $ctx['profile']['capabilities'] : [],
+                'qualify_read'   => '',
+                'business_facts' => [],
+            ];
+        } else {
+            $conv = agent_core_conversation_context($ctx);
+            $pack = agent_core_knowledge_pack($bot !== [] ? $bot : ['id' => (int) ($ctx['bot_id'] ?? 0)]);
+        }
         $intent = agent_core_intent($ctx, $conv);
         $source = agent_core_source_route($ctx, $conv, $intent);
         if (!empty($source['needs_web']) && ($intent['kind'] ?? '') !== 'CORRECTION') {
@@ -67,23 +103,29 @@ function agent_core_run(array $ctx): array
             $toolResults[] = agent_core_tool($name, $args, $ctx);
         }
 
-        $draft = agent_core_compose($pack, $plan, $toolResults, $ctx, $conv);
+        $draft = trim(agent_core_compose($pack, $plan, $toolResults, $ctx, $conv));
+        if ($draft === '') {
+            return $fail('empty_compose', false, $intent, $plan, $toolResults);
+        }
         $check = agent_core_validate($draft, $ctx, $intent, $plan);
         if (empty($check['ok'])) {
             $hint = '';
             if (function_exists('conversation_validation_retry_hint')) {
                 $hint = conversation_validation_retry_hint((string) ($check['reason'] ?? ''), (string) ($ctx['text'] ?? ''));
             }
-            $draft = agent_core_compose($pack, $plan, $toolResults, $ctx, $conv, $hint);
+            $draft = trim(agent_core_compose($pack, $plan, $toolResults, $ctx, $conv, $hint));
+            if ($draft === '') {
+                return $fail('empty_compose', false, $intent, $plan, $toolResults);
+            }
             $check = agent_core_validate($draft, $ctx, $intent, $plan);
             if (empty($check['ok'])) {
-                $draft = agent_core_compose_fallback($pack, $plan, $toolResults, $ctx);
+                return $fail('validation_failed', false, $intent, $plan, $toolResults);
             }
         }
 
         return [
-            'ok'           => trim($draft) !== '',
-            'reply'        => trim($draft) !== '' ? trim($draft) : agent_core_compose_fallback($pack, $plan, $toolResults, $ctx),
+            'ok'           => true,
+            'reply'        => $draft,
             'path'         => 'agent_core',
             'intent'       => $intent,
             'plan'         => $plan,
@@ -94,11 +136,7 @@ function agent_core_run(array $ctx): array
     } catch (Throwable $e) {
         error_log('agent_core_run: ' . $e->getMessage());
         $class = agent_core_classify_error($e, $ctx);
-        $empty['error'] = $e->getMessage();
-        $empty['retryable'] = !empty($class['retryable']);
-        $empty['reply'] = 'Got you. I\'m listening — what\'s on your mind?';
-        $empty['ok'] = true;
 
-        return $empty;
+        return $fail($e->getMessage(), !empty($class['retryable']));
     }
 }

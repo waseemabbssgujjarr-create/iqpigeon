@@ -1,7 +1,7 @@
 <?php
 /**
- * Source router — wraps conversation_source_route and adds live-world commodities
- * (petrol/fuel) so restaurant catalogs are not selected.
+ * Source router — wraps conversation_source_route, keeps live-world commodities,
+ * and marks MIXED when more than one source is needed.
  *
  * @return array{primary: string, needs_web: bool, needs_orders: bool, needs_hours: bool, needs_catalog: bool, needs_memory: bool, search_query: string}
  */
@@ -38,11 +38,16 @@ function agent_core_source_route(array $turnCtx, array $conv, array $intent): ar
     }
 
     $msg = mb_strtolower($message);
-    if (agent_core_looks_like_live_world($msg) && !agent_core_looks_like_business_catalog($msg)) {
-        $out['primary'] = 'LIVE_WEB';
+    if (function_exists('agent_core_looks_like_live_world')
+        && agent_core_looks_like_live_world($msg)
+        && !(function_exists('agent_core_looks_like_business_catalog') && agent_core_looks_like_business_catalog($msg))
+    ) {
         $out['needs_web'] = true;
         $out['needs_catalog'] = false;
         $out['search_query'] = $out['search_query'] !== '' ? $out['search_query'] : mb_substr(trim($message), 0, 180);
+        if (empty($out['needs_hours']) && empty($out['needs_orders']) && empty($out['needs_memory'])) {
+            $out['primary'] = 'LIVE_WEB';
+        }
     }
 
     if (($intent['kind'] ?? '') === 'CORRECTION') {
@@ -50,6 +55,18 @@ function agent_core_source_route(array $turnCtx, array $conv, array $intent): ar
         $out['needs_web'] = false;
         $out['needs_catalog'] = false;
         $out['needs_memory'] = true;
+    } elseif (($intent['kind'] ?? '') === 'FOLLOW_UP' || !empty($intent['continue_thread'])) {
+        $out['needs_memory'] = true;
+    }
+
+    $flags = 0;
+    foreach (['needs_web', 'needs_hours', 'needs_orders', 'needs_catalog', 'needs_memory'] as $key) {
+        if (!empty($out[$key])) {
+            $flags++;
+        }
+    }
+    if ($flags >= 2 && ($intent['kind'] ?? '') !== 'CORRECTION') {
+        $out['primary'] = 'MIXED';
     }
 
     return $out;

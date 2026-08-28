@@ -1,6 +1,7 @@
 <?php
 /**
- * Thread, referents, missed thought. Reads conversations; does not write.
+ * Thread, referents, missed thought, mind facts. Reads conversations; does not write
+ * except conversation_mind_context mode save when a real lead exists (same as live mind).
  *
  * @return array<string, mixed>
  */
@@ -13,6 +14,7 @@ declare(strict_types=1);
 function agent_core_conversation_context(array $turnCtx): array
 {
     $leadId = (int) ($turnCtx['lead_id'] ?? 0);
+    $bot = is_array($turnCtx['bot'] ?? null) ? $turnCtx['bot'] : [];
     $history = [];
     if ($leadId > 0 && function_exists('wa_webhook_recent_chat')) {
         try {
@@ -49,7 +51,7 @@ function agent_core_conversation_context(array $turnCtx): array
     $missed = agent_core_infer_missed_thought((string) ($turnCtx['text'] ?? ''), $lastUser, $lastAssistant);
 
     $facts = [];
-    $botId = (int) ($turnCtx['bot_id'] ?? 0);
+    $botId = (int) ($turnCtx['bot_id'] ?? $bot['id'] ?? 0);
     if ($botId > 0 && $leadId > 0 && function_exists('agent_core_memory_read')) {
         try {
             $facts = agent_core_memory_read($botId, $leadId, (string) ($turnCtx['text'] ?? ''));
@@ -58,14 +60,52 @@ function agent_core_conversation_context(array $turnCtx): array
         }
     }
 
+    $mindMode = 'FOLLOW_UP';
+    $personal = [];
+    $bizFacts = [];
+    $summary = '';
+    require_once dirname(__DIR__) . '/conversation-mind.php';
+    if (function_exists('conversation_mind_personal_facts') && $bot !== []) {
+        $personal = conversation_mind_personal_facts($bot);
+    }
+    if (function_exists('conversation_mind_business_facts') && $bot !== []) {
+        $bizFacts = conversation_mind_business_facts($bot);
+    }
+    if ($leadId > 0 && $bot !== [] && function_exists('conversation_mind_context')) {
+        try {
+            $mind = conversation_mind_context($bot, $leadId, (string) ($turnCtx['text'] ?? ''));
+            $mindMode = (string) ($mind['mode'] ?? $mindMode);
+            $history = is_array($mind['history'] ?? null) && $mind['history'] !== [] ? $mind['history'] : $history;
+            if (is_array($mind['facts'] ?? null) && $mind['facts'] !== []) {
+                $personal = $mind['facts'];
+            }
+            if (is_array($mind['biz_facts'] ?? null) && $mind['biz_facts'] !== []) {
+                $bizFacts = $mind['biz_facts'];
+            }
+            if (is_array($mind['customer_memory'] ?? null) && $mind['customer_memory'] !== []) {
+                $facts = $facts === [] ? $mind['customer_memory'] : array_merge($mind['customer_memory'], $facts);
+            }
+            $summary = (string) ($mind['summary'] ?? '');
+        } catch (Throwable $e) {
+            error_log('agent_core_conversation_context mind: ' . $e->getMessage());
+        }
+    }
+    if ($summary === '' && function_exists('conversation_mind_summary')) {
+        $summary = conversation_mind_summary($history, (string) ($turnCtx['text'] ?? ''), $mindMode);
+    }
+
     return [
-        'history'        => $history,
-        'last_assistant' => $lastAssistant,
-        'last_user'      => $lastUser,
-        'referents'      => ['product' => $referent, 'topic' => $referent],
-        'open_goal'      => null,
-        'missed_thought' => $missed,
-        'runtime_facts'  => is_array($facts) ? $facts : [],
+        'history'         => $history,
+        'last_assistant'  => $lastAssistant,
+        'last_user'       => $lastUser,
+        'referents'       => ['product' => $referent, 'topic' => $referent],
+        'open_goal'       => null,
+        'missed_thought'  => $missed,
+        'runtime_facts'   => is_array($facts) ? $facts : [],
+        'mind_mode'       => $mindMode,
+        'personal_facts'  => is_array($personal) ? $personal : [],
+        'business_facts'  => is_array($bizFacts) ? $bizFacts : [],
+        'summary'         => $summary,
     ];
 }
 

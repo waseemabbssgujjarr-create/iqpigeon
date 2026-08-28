@@ -231,6 +231,10 @@ function conversation_runtime_prompt_suffix(array $bot, int $leadId, string $use
 {
     $botId = (int) ($bot['id'] ?? 0);
     $lines = [];
+    $planNote = trim((string) ($ctx['plan_note'] ?? ''));
+    if ($planNote !== '') {
+        $lines[] = $planNote;
+    }
     $facts = is_array($ctx['customer_memory'] ?? null)
         ? $ctx['customer_memory']
         : conversation_runtime_load_facts($botId, $leadId, $userMessage);

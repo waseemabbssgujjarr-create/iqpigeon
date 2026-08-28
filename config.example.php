@@ -94,7 +94,9 @@ define('TURN_MEDIA_DEBOUNCE_MS', 7000);
 define('TURN_MAX_WINDOW_MS', 30000);
 define('HUMAN_AGENT_PURE_MODE', true);
 
-// Agent Core Phase 1 (WhatsApp compose). Default OFF. Empty BOT_IDS = nobody.
+// Agent Core (WhatsApp compose). Default OFF. Empty BOT_IDS = nobody.
+// Phase 2 orchestrates conversation_mind_generate; does not replace live webhook_mind while OFF.
+// wa_skip_openai (set by send_leads_now) skips the old human_openai layer, not mind generate.
 // To opt in a NON-production test bot later: ENABLED true AND comma-separated ids (never 57 until authorized).
 define('AGENT_CORE_ENABLED', false);
 define('AGENT_CORE_BOT_IDS', '');

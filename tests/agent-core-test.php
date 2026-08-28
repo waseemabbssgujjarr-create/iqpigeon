@@ -37,6 +37,8 @@ $toolsSrc = file_get_contents($root . '/includes/agent-core/tools.php') ?: '';
 $knowledgeSrc = file_get_contents($root . '/includes/agent-core/knowledge.php') ?: '';
 $runSrc = file_get_contents($root . '/includes/agent-core/agent-core.php') ?: '';
 $bootSrc = file_get_contents($root . '/includes/agent-core/bootstrap.php') ?: '';
+$budgetSrc = file_get_contents($root . '/includes/agent-core/budget.php') ?: '';
+$intentSrc = file_get_contents($root . '/includes/agent-core/intent.php') ?: '';
 
 ac_assert(defined('AGENT_CORE_ENABLED') && AGENT_CORE_ENABLED === false, 'master flag default false');
 ac_assert(agent_core_bot_ids() === [], 'allow-list empty by default');
@@ -54,7 +56,8 @@ ac_assert(
     str_contains($coreSrc, "'path' => 'webhook_mind'")
     && str_contains($coreSrc, 'wa_webhook_mind_reply($bot, $leadId, $userMessage)')
     && str_contains($coreSrc, 'agent_core_enabled($bot)')
-    && str_contains($coreSrc, "'path' => 'agent_core'"),
+    && str_contains($coreSrc, "'path' => 'agent_core'")
+    && str_contains($coreSrc, 'agent_core_result_usable($core)'),
     'budget compose still has webhook_mind and an agent_core fork'
 );
 
@@ -101,7 +104,8 @@ ac_assert(
 
 ac_assert(
     str_contains($coreSrc, '$agentCoreOn || empty($GLOBALS[\'wa_webhook_budget\'])')
-    && str_contains($coreSrc, '$mediaBudget = !empty($GLOBALS[\'wa_webhook_budget\']) ? 3.0 : 8.0'),
+    && str_contains($coreSrc, '$mediaBudget = !empty($GLOBALS[\'wa_webhook_budget\']) ? 3.0 : 8.0')
+    && str_contains($coreSrc, 'agent_core_media_enrich($turnId, $token)'),
     'media enrich runs for enabled bots under budget with a 3s deadline'
 );
 
@@ -122,6 +126,21 @@ ac_assert(
     && !str_contains($runSrc, 'wa_recover_send_whatsapp')
     && !str_contains($toolsSrc, 'wa_recover_send_whatsapp'),
     'Phase 1 tools/run do not mutate cart/order/booking/qualify/memory or Graph-send'
+);
+
+$composeSrc = file_get_contents($root . '/includes/agent-core/compose.php') ?: '';
+ac_assert(
+    str_contains($composeSrc, 'conversation_mind_generate')
+    && !str_contains($composeSrc, 'ai_chat('),
+    'compose uses conversation_mind_generate, not a second ai_chat brain'
+);
+
+ac_assert(
+    str_contains($toolsSrc, "'hours.read'")
+    && str_contains($toolsSrc, "'orders.read'")
+    && str_contains($toolsSrc, 'conversation_runtime_hours_now')
+    && str_contains($toolsSrc, 'conversation_runtime_load_orders'),
+    'hours and order history are real read-only tools'
 );
 
 ac_assert(
@@ -180,6 +199,22 @@ $petrolSteal = agent_core_validate(
     $petrolPlan
 );
 ac_assert(empty($petrolSteal['ok']), 'live-world draft that dumps a menu fails validation');
+
+$mixedCtx = $baseCtx;
+$mixedCtx['text'] = 'Are you open tonight and who is the current PM of Pakistan?';
+$mixedIntent = agent_core_intent($mixedCtx, $emptyConv);
+$mixedSource = agent_core_source_route($mixedCtx, $emptyConv, $mixedIntent);
+$mixedPlan = agent_core_plan($mixedCtx, $emptyConv, $mixedIntent, $mixedSource, ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$mixedNames = array_map(static fn ($c) => (string) ($c['name'] ?? ''), $mixedPlan['tool_calls'] ?? []);
+ac_assert(
+    !empty($mixedSource['needs_web'])
+    && !empty($mixedSource['needs_hours'])
+    && ($mixedSource['primary'] ?? '') === 'MIXED'
+    && ($mixedPlan['answer_kind'] ?? '') === 'MIXED'
+    && in_array('live_web.search', $mixedNames, true)
+    && in_array('hours.read', $mixedNames, true),
+    'hours + world question is MIXED and loads both hours.read and live_web.search'
+);
 
 $blackConv = $emptyConv;
 $blackConv['last_assistant'] = 'Here is *Black leather bag* — PKR 2,500.';
@@ -245,6 +280,135 @@ ac_assert(($forbiddenBook['error'] ?? '') === 'forbidden_phase1', 'booking.creat
 
 $textOnlyMedia = str_contains($coreSrc, '!wa_auto_reply_turn_is_text_only($turnId)');
 ac_assert($textOnlyMedia, 'text-only turns still skip Whisper');
+
+ac_assert(
+    ($petrolIntent['mind'] ?? '') !== ''
+    && ($petrolIntent['override'] ?? '') === 'LIVE_WORLD'
+    && is_array($petrolIntent['signals'] ?? null)
+    && !empty($petrolIntent['signals']['live_world'])
+    && strpos($intentSrc, 'agent_core_mind_intent_kind') !== false
+    && strpos($intentSrc, 'agent_core_mind_intent_kind') < strpos($intentSrc, 'agent_core_intent_apply_overrides')
+    && str_contains($intentSrc, 'function conversation_mind_intent') === false
+    && str_contains($intentSrc, 'conversation_mind_intent('),
+    'mind classifier always runs; specialized LIVE_WORLD is an override on one intent object'
+);
+
+$hiCtx = $baseCtx;
+$hiCtx['text'] = 'hi';
+$hiIntent = agent_core_intent($hiCtx, $emptyConv);
+ac_assert(
+    ($hiIntent['kind'] ?? '') === 'GREETING'
+    && ($hiIntent['mind'] ?? '') === 'GREETING'
+    && ($hiIntent['override'] ?? '') === 'GREETING',
+    'greeting is one intent: mind GREETING plus GREETING overlay'
+);
+
+$idCtx = $baseCtx;
+$idCtx['text'] = 'who are you';
+$idIntent = agent_core_intent($idCtx, $emptyConv);
+ac_assert(
+    ($idIntent['kind'] ?? '') === 'IDENTITY'
+    && ($idIntent['mind'] ?? '') !== ''
+    && ($idIntent['override'] ?? '') === 'IDENTITY',
+    'identity overlay feeds one intent object without skipping mind'
+);
+
+$catCtx = $baseCtx;
+$catCtx['text'] = 'show me the menu';
+$catIntent = agent_core_intent($catCtx, $emptyConv);
+ac_assert(
+    ($catIntent['kind'] ?? '') === 'CATALOG'
+    && ($catIntent['tools'] ?? []) === ['catalog.search']
+    && ($catIntent['mind'] ?? '') === 'BUSINESS_INQUIRY'
+    && ($catIntent['override'] ?? '') === 'CATALOG',
+    'catalog overlay sits on mind BUSINESS_INQUIRY, not a second brain'
+);
+
+$offCtx = $baseCtx;
+$offCtx['text'] = '';
+$offIntent = agent_core_intent($offCtx, $emptyConv);
+ac_assert(
+    ($offIntent['kind'] ?? '') === 'OFF_TOPIC'
+    && ($offIntent['override'] ?? '') === 'OFF_TOPIC'
+    && function_exists('agent_core_map_mind_intent')
+    && function_exists('agent_core_looks_like_live_world'),
+    'empty turn is OFF_TOPIC; existing intent helpers are kept'
+);
+
+ac_assert(
+    !str_contains($runSrc, "Got you. I'm listening")
+    && str_contains($runSrc, "return \$fail('validation_failed'")
+    && str_contains($runSrc, "return \$fail('empty_compose'"),
+    'Core run does not send a generic listening line on failure'
+);
+
+function ac_compose_path(array $core): string
+{
+    return agent_core_result_usable($core) ? 'agent_core' : 'webhook_mind';
+}
+
+$GLOBALS['agent_core_test_throw'] = true;
+$threw = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_throw']);
+ac_assert(
+    empty($threw['ok'])
+    && trim((string) ($threw['reply'] ?? '')) === ''
+    && ac_compose_path($threw) === 'webhook_mind'
+    && ($threw['error'] ?? '') === 'test_forced_core_failure',
+    'Core exception → webhook_mind fallback'
+);
+
+$emptyCore = agent_core_run($petrolCtx);
+ac_assert(
+    empty($emptyCore['ok'])
+    && trim((string) ($emptyCore['reply'] ?? '')) === ''
+    && ($emptyCore['error'] ?? '') === 'empty_compose'
+    && ac_compose_path($emptyCore) === 'webhook_mind',
+    'empty Core result → webhook_mind fallback'
+);
+
+$GLOBALS['agent_core_test_draft'] = 'Reply with a number from our menu';
+$badVal = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_draft']);
+ac_assert(
+    empty($badVal['ok'])
+    && trim((string) ($badVal['reply'] ?? '')) === ''
+    && ($badVal['error'] ?? '') === 'validation_failed'
+    && ac_compose_path($badVal) === 'webhook_mind'
+    && !str_contains((string) json_encode($badVal), "Got you"),
+    'validation failure after retry → webhook_mind fallback'
+);
+
+ac_assert(
+    str_contains($budgetSrc, 'wa_human_openai_reply')
+    && str_contains($budgetSrc, 'conversation_mind_generate')
+    && str_contains($bootSrc, "require_once __DIR__ . '/budget.php'")
+    && !str_contains($composeSrc, 'wa_human_openai_reply(')
+    && !str_contains($composeSrc, 'wa_webhook_friend_openai('),
+    'Core documents skip_openai contract and does not call human-layer OpenAI'
+);
+
+$prevSkip = $GLOBALS['wa_skip_openai'] ?? null;
+$prevNet = $GLOBALS['agent_core_no_network'] ?? null;
+$GLOBALS['wa_skip_openai'] = true;
+$GLOBALS['agent_core_no_network'] = false;
+$skipOn = agent_core_skip_human_openai();
+$mayGen = agent_core_may_call_mind_generate();
+$GLOBALS['agent_core_no_network'] = true;
+$blocked = agent_core_may_call_mind_generate();
+if ($prevSkip === null) {
+    unset($GLOBALS['wa_skip_openai']);
+} else {
+    $GLOBALS['wa_skip_openai'] = $prevSkip;
+}
+$GLOBALS['agent_core_no_network'] = $prevNet;
+ac_assert(
+    $skipOn === true
+    && $mayGen === true
+    && $blocked === false
+    && str_contains($engineSrc, "\$GLOBALS['wa_skip_openai'] = true"),
+    'skip_openai blocks human OpenAI but still allows mind generate on budgeted turns'
+);
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed > 0 ? 1 : 0);

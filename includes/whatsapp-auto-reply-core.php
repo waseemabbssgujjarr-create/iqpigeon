@@ -1522,9 +1522,8 @@ function wa_auto_reply_compose(array $bot, int $leadId, string $userMessage, int
             require_once __DIR__ . '/agent-core/agent-core.php';
             try {
                 $core = agent_core_reply($bot, $leadId, $userMessage, $turnId, 'whatsapp');
-                $coreReply = trim((string) ($core['reply'] ?? ''));
-                if ($coreReply !== '') {
-                    return ['reply' => $coreReply, 'path' => 'agent_core'];
+                if (agent_core_result_usable($core)) {
+                    return ['reply' => trim((string) $core['reply']), 'path' => 'agent_core'];
                 }
             } catch (Throwable $coreErr) {
                 error_log('wa_auto_reply_compose agent_core #' . $turnId . ': ' . $coreErr->getMessage());
@@ -1714,16 +1713,16 @@ function wa_auto_reply_deliver_turn(array $turn, array $bot, string $phoneId, st
         }
 
         require_once __DIR__ . '/agent-core/bootstrap.php';
+        require_once __DIR__ . '/agent-core/media.php';
         $agentCoreOn = agent_core_enabled($bot);
         if (($agentCoreOn || empty($GLOBALS['wa_webhook_budget']))
             && $turnId > 0
-            && function_exists('turn_engine_process_turn_media')
             && !wa_auto_reply_turn_is_text_only($turnId)
         ) {
             $mediaBudget = !empty($GLOBALS['wa_webhook_budget']) ? 3.0 : 8.0;
             $GLOBALS['wa_media_deadline'] = microtime(true) + $mediaBudget;
             try {
-                turn_engine_process_turn_media($turnId, $token);
+                agent_core_media_enrich($turnId, $token);
             } catch (Throwable $e) {
                 error_log('wa_auto_reply_deliver_turn media #' . $turnId . ': ' . $e->getMessage());
             }

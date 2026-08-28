@@ -25,6 +25,13 @@ function agent_core_knowledge_pack(array $bot): array
     $profile = function_exists('agent_core_business_profile')
         ? agent_core_business_profile($bot)
         : ['capabilities' => [], 'rep' => '', 'brand' => $brand];
+    $bizFacts = [];
+    if (is_file(dirname(__DIR__) . '/conversation-mind.php')) {
+        require_once dirname(__DIR__) . '/conversation-mind.php';
+        if (function_exists('conversation_mind_business_facts')) {
+            $bizFacts = conversation_mind_business_facts($bot);
+        }
+    }
 
     $qual = '';
     try {
@@ -52,6 +59,7 @@ function agent_core_knowledge_pack(array $bot): array
         'capabilities'   => $profile['capabilities'] ?? [],
         'brand'          => $brand,
         'rep'            => (string) ($profile['rep'] ?? ''),
-        'qualify_read'   => $qual,
+        'qualify_read'    => $qual,
+        'business_facts'  => is_array($bizFacts) ? $bizFacts : [],
     ];
 }
