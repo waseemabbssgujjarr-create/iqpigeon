@@ -1,0 +1,11 @@
+{
+    "name": "sales-setter-ai/app",
+    "description": "IQ Pigeon SaaS — AI sales reps for WhatsApp, Instagram, and web",
+    "require": {
+        "php": ">=8.1",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

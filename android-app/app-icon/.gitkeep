@@ -1,0 +1,5 @@
+Place your app icon PNG in this folder as `app-icon.png` (1024×1024 recommended).
+
+Then in Android Studio: File → New → Image Asset → select this file.
+
+See README.md in this folder for full steps.

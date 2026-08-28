@@ -1,0 +1,22 @@
+# Build output
+/build/
+/app/build/
+/.gradle/
+/local.properties
+
+# Android Studio
+/.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Signing keys — NEVER commit
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# OS
+.DS_Store
+Thumbs.db

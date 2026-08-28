@@ -1,0 +1,51 @@
+{
+  "id": "/",
+  "name": "IQ Pigeon",
+  "short_name": "IQ Pigeon",
+  "description": "Human-like AI sales reps for WhatsApp and your website.",
+  "start_url": "/client/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3d9430",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/img/Fav-Icon-on-white-bg.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/Fav-Icon-on-white-bg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/Fav-Icon-on-white-bg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/img/Fav-Icon-on-black-bg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Train your rep",
+      "url": "/client/training",
+      "icons": [{ "src": "/assets/img/Fav-Icon-on-white-bg.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Connect WhatsApp",
+      "url": "/client/connect-whatsapp",
+      "icons": [{ "src": "/assets/img/Fav-Icon-on-white-bg.png", "sizes": "512x512" }]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+Options -Indexes -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# Pass Authorization to PHP (required for AI CEO ingest Bearer keys on CGI/FastCGI)
+RewriteCond %{HTTP:Authorization} .
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# BIMI inbox logo (Gmail brand avatar)
+RewriteRule ^\.well-known/bimi/logo\.svg$ bimi-logo.php [L]
+
+# Dynamic robots.txt (AI crawler block toggle)
+RewriteRule ^robots\.txt$ robots.php [L]
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Block sensitive paths
+RewriteRule ^includes/  - [F,L]
+RewriteRule ^lib/       - [F,L]
+RewriteRule ^install/   - [F,L]
+RewriteRule ^storage/   - [F,L]
+RewriteRule ^config\.php$ - [F,L]
+RewriteRule ^config\.local\.php$ - [F,L]
+
+# Block dangerous one-time / dev scripts (defense in depth — also gated in PHP)
+RewriteRule ^(ensure-test-users|setup|sync-calendly)\.php$ - [F,L]
+
+# ── Clean URLs: hide .php on user-facing pages (/api/ and /iqpigeon2/ keep .php) ──
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/iqpigeon2(/|$) [NC]
+RewriteCond %{REQUEST_URI} !^/client/whatsapp-oauth-callback\.php [NC]
+
+# GET only — avoid breaking POST form submissions mid-migration
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]
+RewriteRule ^index\.php$ / [R=301,L]
+
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/iqpigeon2(/|$) [NC]
+RewriteCond %{REQUEST_URI} !^/client/whatsapp-oauth-callback\.php [NC]
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteCond %{THE_REQUEST} \s/+([^\s?]*?)\.php(\?[^\s]*)?\s [NC]
+RewriteRule ^ %1%2 [R=301,L,NE]
+
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# IQ Pigeon 2 (subdirectory UI — same live DB/auth)
+RewriteCond %{DOCUMENT_ROOT}/iqpigeon2/admin/$1.php -f
+RewriteRule ^iqpigeon2/admin/([a-zA-Z0-9_-]+)/?$ iqpigeon2/admin/$1.php [L,NC]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/iqpigeon2/api/$1.php -f
+RewriteRule ^iqpigeon2/api/([a-zA-Z0-9_-]+)/?$ iqpigeon2/api/$1.php [L,NC]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/iqpigeon2/$1.php -f
+RewriteRule ^iqpigeon2/([a-zA-Z0-9_-]+)/?$ iqpigeon2/$1.php [L,NC]
+
+# Admin portal (cPanel-safe explicit rewrite)
+RewriteCond %{DOCUMENT_ROOT}/admin/$1.php -f
+RewriteRule ^admin/([a-zA-Z0-9_-]+)/?$ admin/$1.php [L,NC]
+
+# Client portal
+RewriteCond %{DOCUMENT_ROOT}/client/$1.php -f
+RewriteRule ^client/([a-zA-Z0-9_-]+)/?$ client/$1.php [L,NC]
+
+# Root-level pages (login, register, pricing, …)
+RewriteCond %{DOCUMENT_ROOT}/$1.php -f
+RewriteRule ^([a-zA-Z0-9_-]+)/?$ $1.php [L,NC]
+
+# Security headers (CSP is set in PHP — includes/security.php — so Tailwind CDN stays allowed)
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" env=HTTPS
+</IfModule>

@@ -1,0 +1,256 @@
+/**
+ * Light / dark theme tokens — brand green #4aad36, neutral slate.
+ */
+:root {
+    color-scheme: light;
+
+    /* Layout & shape tokens — 12px controls everywhere; pills only for status chips */
+    --radius-control: 12px;
+    --radius-card: 16px;
+    --radius-card-lg: 20px;
+    --radius-pill: 9999px;
+    --content-max-admin: 68rem;
+    --content-max-app: 72rem;
+    --shadow-control: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-card: 0 1px 2px var(--color-card-shadow), 0 8px 24px rgba(15, 23, 42, 0.06);
+    --shadow-card-hover: 0 2px 4px var(--color-card-shadow), 0 12px 32px rgba(15, 23, 42, 0.08);
+
+    --color-accent: #4aad36;
+    --color-accent-bright: #6bc956;
+    --color-accent-dim: #3d9430;
+    --color-accent-glow: rgba(74, 173, 54, 0.22);
+
+    --color-background: #f8faf8;
+    --color-surface: #f8faf8;
+    --color-surface-bright: #ffffff;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f0f4f0;
+    --color-surface-container: #e6ece6;
+    --color-surface-container-high: #d8e2d8;
+    --color-surface-container-highest: #cad6ca;
+    --color-surface-dim: #c0ccc0;
+    --color-surface-variant: #e6ece6;
+    --color-on-surface: #111827;
+    --color-on-surface-variant: #374151;
+    --color-on-background: #12151c;
+    --color-outline: #6b7280;
+    --color-outline-variant: #c5d0c5;
+    --color-inverse-surface: #0f1219;
+    --color-inverse-on-surface: #f3f4f6;
+    --color-inverse-heading: #6bc956;
+    --color-inverse-muted: #c8cdd6;
+    --color-inverse-faint: #9ca3af;
+    --color-inverse-border: rgba(255, 255, 255, 0.14);
+    --color-inverse-input-bg: rgba(255, 255, 255, 0.08);
+    --color-inverse-input-border: rgba(255, 255, 255, 0.22);
+    --color-inverse-link-hover: #6bc956;
+    --color-inverse-outline-border: rgba(107, 201, 86, 0.55);
+    --color-inverse-outline-hover: rgba(107, 201, 86, 0.12);
+    --color-inverse-code-bg: rgba(0, 0, 0, 0.4);
+    --color-error-container: #ffdad6;
+    --color-on-error-container: #93000a;
+
+    --color-sidebar-bg: #ffffff;
+    --color-sidebar-border: #e6ece6;
+    --color-sidebar-text: #111827;
+    --color-sidebar-muted: #6b7280;
+    --color-nav-bg: #ffffff;
+    --color-nav-border: #e6ece6;
+    --color-nav-hover: rgba(74, 173, 54, 0.08);
+    --color-nav-active-bg: rgba(74, 173, 54, 0.12);
+    --color-nav-active-text: #3d9430;
+    --color-nav-logout-hover: rgba(255, 90, 90, 0.15);
+    --color-header-bg: rgba(248, 250, 248, 0.94);
+    --color-header-border: rgba(197, 208, 197, 0.55);
+    --color-save-bar-bg: rgba(248, 250, 248, 0.96);
+    --color-save-bar-border: rgba(197, 208, 197, 0.6);
+    --color-glass-bg: rgba(255, 255, 255, 0.82);
+    --color-glass-border: rgba(255, 255, 255, 0.45);
+    --color-scrollbar: #c5d0c5;
+    --color-sheet-bg: #ffffff;
+    --color-sheet-handle: #c5d0c5;
+    --color-toast-info-bg: #e6ece6;
+    --color-toast-info-text: #12151c;
+    --color-subtitle: #5c6370;
+    --color-marketing-header: rgba(248, 250, 248, 0.92);
+    --color-hero-glow-1: rgba(74, 173, 54, 0.16);
+    --color-hero-glow-2: rgba(74, 173, 54, 0.08);
+    --color-mockup-bg: linear-gradient(145deg, #ffffff 0%, #f0f4f0 100%);
+    --color-mockup-border: rgba(197, 208, 197, 0.65);
+    --color-card-shadow: rgba(15, 18, 25, 0.08);
+    --color-input-scheme: light;
+    --meta-theme-color: #4aad36;
+    --color-app-bg: #f8faf8;
+    --color-segment-track: #e6ece6;
+    --color-panel-divider: #e6ece6;
+    --color-panel-head: #fafbfa;
+    --color-danger-zone-bg: #fff8f7;
+    --color-danger-zone-border: #ffdad6;
+    --color-icon-btn-bg: #ffffff;
+    --color-icon-btn-border: #e6ece6;
+    --color-nav-link: #6b7280;
+    --color-nav-shadow: rgba(0, 0, 0, 0.06);
+
+    --color-mkt-hero-bg: #0a0c10;
+    --color-mkt-hero-text: #f9fafb;
+    --color-mkt-hero-muted: #d1d5db;
+    --color-mkt-section-dark-bg: #0f1219;
+    --color-mkt-section-dark-text: #f3f4f6;
+    --color-mkt-section-light-bg: #f8faf8;
+    --color-mkt-section-light-text: #12151c;
+
+    /* ─── V2 design system tokens ─── */
+    --color-admin-sidebar-bg: #1e1b4b;
+    --color-admin-sidebar-surface: #312e81;
+    --color-admin-sidebar-border: rgba(255, 255, 255, 0.08);
+    --color-admin-sidebar-text: #e0e7ff;
+    --color-admin-sidebar-muted: #a5b4fc;
+    --color-admin-sidebar-active-bg: rgba(74, 173, 54, 0.22);
+    --color-admin-sidebar-active-text: #bbf7d0;
+    --color-admin-sidebar-hover: rgba(255, 255, 255, 0.08);
+
+    --color-app-canvas: #f1f5f9;
+    --color-surface-elevated: #ffffff;
+
+    --color-landing-gradient-start: #fdf2f8;
+    --color-landing-gradient-mid: #f0fdf4;
+    --color-landing-gradient-end: #eef2ff;
+    --color-landing-glass: rgba(255, 255, 255, 0.72);
+    --color-landing-glass-border: rgba(255, 255, 255, 0.55);
+    --color-landing-float-shadow: rgba(74, 173, 54, 0.14);
+    --color-landing-orb-green: rgba(74, 173, 54, 0.18);
+    --color-landing-orb-indigo: rgba(99, 102, 241, 0.12);
+    --color-landing-orb-pink: rgba(236, 72, 153, 0.1);
+
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+
+    --text-display: clamp(2rem, 5vw, 3rem);
+    --text-headline: 1.5rem;
+    --text-title: 1.125rem;
+    --text-body: 0.9375rem;
+    --text-caption: 0.8125rem;
+    --text-eyebrow: 0.75rem;
+
+    --shadow-layer-1: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-layer-2: 0 4px 12px rgba(15, 23, 42, 0.06);
+    --shadow-layer-3: 0 12px 32px rgba(15, 23, 42, 0.08);
+    --shadow-float: 0 20px 50px var(--color-landing-float-shadow);
+    --shadow-glass: 0 8px 32px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+html.dark {
+    color-scheme: dark;
+
+    --color-background: #0a0c10;
+    --color-surface: #0a0c10;
+    --color-surface-bright: #12151c;
+    --color-surface-container-lowest: #12151c;
+    --color-surface-container-low: #0f1219;
+    --color-surface-container: #181c26;
+    --color-surface-container-high: #222836;
+    --color-surface-container-highest: #2c3344;
+    --color-surface-dim: #06080b;
+    --color-surface-variant: #2c3344;
+    --color-on-surface: #f3f4f6;
+    --color-on-surface-variant: #c8cdd6;
+    --color-on-background: #f3f4f6;
+    --color-outline: #9ca3af;
+    --color-outline-variant: #3d4556;
+    --color-inverse-surface: #12151c;
+    --color-inverse-on-surface: #f3f4f6;
+    --color-inverse-heading: #6bc956;
+    --color-inverse-muted: #c8cdd6;
+    --color-inverse-faint: #9ca3af;
+    --color-inverse-border: rgba(255, 255, 255, 0.12);
+    --color-inverse-input-bg: rgba(255, 255, 255, 0.07);
+    --color-inverse-input-border: rgba(255, 255, 255, 0.2);
+    --color-inverse-link-hover: #6bc956;
+    --color-inverse-outline-border: rgba(107, 201, 86, 0.5);
+    --color-inverse-outline-hover: rgba(107, 201, 86, 0.1);
+    --color-inverse-code-bg: rgba(0, 0, 0, 0.45);
+    --color-error-container: #3d1515;
+    --color-on-error-container: #ffb4ab;
+
+    --color-sidebar-bg: #1a1d1c;
+    --color-sidebar-border: #2a302d;
+    --color-sidebar-text: #f3f5f4;
+    --color-sidebar-muted: #b8c2bd;
+    --color-nav-bg: #1a1d1c;
+    --color-nav-border: #2a302d;
+    --color-nav-hover: rgba(255, 255, 255, 0.07);
+    --color-nav-active-bg: rgba(74, 173, 54, 0.2);
+    --color-nav-active-text: #7dd868;
+    --color-nav-logout-hover: rgba(255, 90, 90, 0.12);
+    --color-header-bg: rgba(10, 12, 16, 0.94);
+    --color-header-border: rgba(44, 51, 68, 0.85);
+    --color-save-bar-bg: rgba(10, 12, 16, 0.96);
+    --color-save-bar-border: rgba(44, 51, 68, 0.85);
+    --color-glass-bg: rgba(18, 21, 28, 0.88);
+    --color-glass-border: rgba(61, 69, 86, 0.55);
+    --color-scrollbar: #3d4556;
+    --color-sheet-bg: #12151c;
+    --color-sheet-handle: #3d4556;
+    --color-toast-info-bg: #222836;
+    --color-toast-info-text: #f3f4f6;
+    --color-subtitle: #9ca3af;
+    --color-marketing-header: rgba(10, 12, 16, 0.88);
+    --color-hero-glow-1: rgba(74, 173, 54, 0.12);
+    --color-hero-glow-2: rgba(74, 173, 54, 0.06);
+    --color-mockup-bg: linear-gradient(145deg, #181c26 0%, #0f1219 100%);
+    --color-mockup-border: rgba(61, 69, 86, 0.65);
+    --color-card-shadow: rgba(0, 0, 0, 0.4);
+    --color-input-scheme: dark;
+    --meta-theme-color: #0a0c10;
+    --color-app-bg: #0a0c10;
+    --color-segment-track: #222836;
+    --color-panel-divider: #2c3344;
+    --color-panel-head: #181c26;
+    --color-danger-zone-bg: #2a1818;
+    --color-danger-zone-border: #5c3030;
+    --color-icon-btn-bg: #181c26;
+    --color-icon-btn-border: #2c3344;
+    --color-nav-link: #9ca3af;
+    --color-nav-shadow: rgba(0, 0, 0, 0.45);
+
+    --color-mkt-hero-bg: #06080b;
+    --color-mkt-hero-text: #f9fafb;
+    --color-mkt-hero-muted: #d1d5db;
+    --color-mkt-section-dark-bg: #0a0c10;
+    --color-mkt-section-dark-text: #f3f4f6;
+    --color-mkt-section-light-bg: #12151c;
+    --color-mkt-section-light-text: #f3f4f6;
+
+    --color-admin-sidebar-bg: #0f0d2e;
+    --color-admin-sidebar-surface: #1e1b4b;
+    --color-admin-sidebar-border: rgba(255, 255, 255, 0.06);
+    --color-admin-sidebar-text: #c7d2fe;
+    --color-admin-sidebar-muted: #818cf8;
+    --color-admin-sidebar-active-bg: rgba(74, 173, 54, 0.18);
+    --color-admin-sidebar-active-text: #86efac;
+    --color-admin-sidebar-hover: rgba(255, 255, 255, 0.06);
+
+    --color-app-canvas: #0a0c10;
+    --color-surface-elevated: #12151c;
+
+    --color-landing-gradient-start: #1a1525;
+    --color-landing-gradient-mid: #0f1a12;
+    --color-landing-gradient-end: #12152a;
+    --color-landing-glass: rgba(18, 21, 28, 0.78);
+    --color-landing-glass-border: rgba(61, 69, 86, 0.45);
+    --color-landing-float-shadow: rgba(74, 173, 54, 0.08);
+    --color-landing-orb-green: rgba(74, 173, 54, 0.12);
+    --color-landing-orb-indigo: rgba(99, 102, 241, 0.08);
+    --color-landing-orb-pink: rgba(236, 72, 153, 0.06);
+
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html.dark body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+}

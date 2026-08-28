@@ -1,0 +1,54 @@
+# Secrets — never commit
+config.php
+config.local.php
+config.local.server.php
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.claude/settings.local.json
+.claude/
+
+# Logs
+*.log
+error_log
+**/error_log
+
+# PHP dependencies
+/vendor/
+composer.lock
+
+# Runtime / production / customer data (keep directory placeholders only)
+/storage/*
+!/storage/logs/
+!/storage/security/
+!/storage/website-import-jobs/
+!/storage/whatsapp-media/
+
+/storage/logs/*
+!/storage/logs/.gitkeep
+!/storage/logs/.htaccess
+
+/storage/security/*
+!/storage/security/.htaccess
+!/storage/security/ratelimit/
+
+/storage/security/ratelimit/*
+!/storage/security/ratelimit/.gitkeep
+
+/storage/website-import-jobs/*
+!/storage/website-import-jobs/.gitkeep
+
+/storage/whatsapp-media/*
+!/storage/whatsapp-media/.htaccess
+
+/uploads/conversation-media/inbound/*
+!/uploads/conversation-media/inbound/.gitkeep

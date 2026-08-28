@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IQ Pigeon</string>
+    <string name="error_title">Connection problem</string>
+    <string name="error_offline">Could not load the app. Check your internet connection and try again.</string>
+    <string name="retry">Try again</string>
+</resources>

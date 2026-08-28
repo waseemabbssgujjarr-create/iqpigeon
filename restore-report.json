@@ -1,0 +1,970 @@
+{
+  "files": [
+    {
+      "file": "conversation-turn-engine.php",
+      "status": "restored",
+      "baseSource": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl",
+      "baseLine": 4678,
+      "baseChars": 42497,
+      "size": 77949,
+      "patchesApplied": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4679",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4679",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4689",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4701",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4701",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4702",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4721",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4721",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4777",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4778",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4778",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4780",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4788",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4843",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4867",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4869",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4869",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4870",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4899",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4899",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4969",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4969",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4978",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4978",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4979",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5012",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5024",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5028",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5043",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5111",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5128",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5128",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5134",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5145",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5146",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5148",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5153",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5154",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5154",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5661",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5661",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5958",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5996",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6900",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:8",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:8",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9",
+        "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9",
+        "f31de774-9a69-4760-869b-fc6a81723109.jsonl:12",
+        "f31de774-9a69-4760-869b-fc6a81723109.jsonl:12",
+        "ef41347d-d5cc-47d5-b28b-6b8ade3040ed.jsonl:24",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:19",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:19",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:21",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:21",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:22",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:22",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:23",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:27",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:28",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:30",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:50",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:50",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:51",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:55",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:55"
+      ],
+      "patchesSkipped": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4757",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4764",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4764",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4764",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4770",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4788",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4790",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4870",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4870",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4983",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4985",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5098",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5098",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5130",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5155",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5160",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5160",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6149",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6171",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6186",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6897",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6898",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6899",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6",
+        "ef41347d-d5cc-47d5-b28b-6b8ade3040ed.jsonl:24",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:28",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:28",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:33",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+      ],
+      "functionsFound": [
+        "turn_engine_constants",
+        "turn_engine_ensure_schema",
+        "turn_engine_ingest",
+        "turn_engine_process_due"
+      ],
+      "functionsMissing": [
+        "turn_engine_should_suppress_outbound"
+      ]
+    },
+    {
+      "file": "conversation-media.php",
+      "status": "restored",
+      "baseSource": "024f2639-66a3-49ca-a1cd-6d68f544bae9.jsonl",
+      "baseLine": 15,
+      "baseChars": 7629,
+      "size": 12984,
+      "patchesApplied": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:3927",
+        "024f2639-66a3-49ca-a1cd-6d68f544bae9.jsonl:20",
+        "024f2639-66a3-49ca-a1cd-6d68f544bae9.jsonl:22",
+        "235a950f-d64d-4e36-a66c-1641420a0dad.jsonl:20"
+      ],
+      "patchesSkipped": [],
+      "functionsFound": [
+        "conversation_insert",
+        "conversation_message_display",
+        "conversation_save_outbound_image"
+      ],
+      "functionsMissing": []
+    },
+    {
+      "file": "conversation-intent.php",
+      "status": "restored",
+      "baseSource": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl",
+      "baseLine": 5043,
+      "baseChars": 8134,
+      "size": 14149,
+      "patchesApplied": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4970",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4980",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5027",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5029",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5030",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5094",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5098",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:18",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:18"
+      ],
+      "patchesSkipped": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4896",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4896",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4915",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4955",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4955",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4955",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4955",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4956",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4967",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4967",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4967",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4977",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5013",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5013",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5065",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5067",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5094",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5110",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125"
+      ],
+      "functionsFound": [
+        "conversation_normalize_intent_text",
+        "conversation_should_hold_turn_for_more_input"
+      ],
+      "functionsMissing": []
+    },
+    {
+      "file": "conversation-intelligence.php",
+      "status": "restored",
+      "baseSource": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl",
+      "baseLine": 17,
+      "baseChars": 66201,
+      "size": 69288,
+      "patchesApplied": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6904",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6905",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:30",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:37"
+      ],
+      "patchesSkipped": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4788",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4790",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:29",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:29",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:29",
+        "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:29"
+      ],
+      "functionsFound": [
+        "conversation_intelligence_analyze"
+      ],
+      "functionsMissing": []
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "status": "restored",
+      "baseSource": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl",
+      "baseLine": 6148,
+      "baseChars": 7332,
+      "size": 11704,
+      "patchesApplied": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6152",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6168",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6168",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6216",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6240",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6240",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6249",
+        "ef41347d-d5cc-47d5-b28b-6b8ade3040ed.jsonl:23",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:23",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:23",
+        "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:25"
+      ],
+      "patchesSkipped": [
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6216",
+        "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6240"
+      ],
+      "functionsFound": [
+        "pipeline_allows_conversational_shortcuts",
+        "pipeline_finalize_text",
+        "pipeline_store_and_return"
+      ],
+      "functionsMissing": []
+    }
+  ],
+  "patchesApplied": [
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4679"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4679"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4686"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4689"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4701"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4701"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4702"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4704"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4707"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4719"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4721"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4721"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4733"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4763"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4777"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4778"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4778"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4780"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4788"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4843"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4867"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4869"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4869"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4870"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4899"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4899"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4917"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4969"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4969"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4978"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4978"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4979"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5012"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5024"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5028"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5043"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5063"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5091"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5111"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5125"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5128"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5128"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5134"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5145"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5146"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5148"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5153"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5154"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5154"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5249"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5661"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5661"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5958"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5996"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6900"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:6"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:8"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "2183e067-504b-4210-9c02-fb22f75c0773.jsonl:8"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:8"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "64475472-43d4-4ca6-84d0-dd7849db0bb2.jsonl:9"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "f31de774-9a69-4760-869b-fc6a81723109.jsonl:12"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "f31de774-9a69-4760-869b-fc6a81723109.jsonl:12"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "ef41347d-d5cc-47d5-b28b-6b8ade3040ed.jsonl:24"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:18"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:19"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:19"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:21"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:21"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:22"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:22"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:23"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:26"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:27"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:28"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:30"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:50"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:50"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:51"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:55"
+    },
+    {
+      "file": "conversation-turn-engine.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:55"
+    },
+    {
+      "file": "conversation-media.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:3927"
+    },
+    {
+      "file": "conversation-media.php",
+      "patch": "024f2639-66a3-49ca-a1cd-6d68f544bae9.jsonl:20"
+    },
+    {
+      "file": "conversation-media.php",
+      "patch": "024f2639-66a3-49ca-a1cd-6d68f544bae9.jsonl:22"
+    },
+    {
+      "file": "conversation-media.php",
+      "patch": "235a950f-d64d-4e36-a66c-1641420a0dad.jsonl:20"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4970"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:4980"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5010"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5023"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5027"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5029"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5030"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5062"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5094"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:5098"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:18"
+    },
+    {
+      "file": "conversation-intent.php",
+      "patch": "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:18"
+    },
+    {
+      "file": "conversation-intelligence.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6904"
+    },
+    {
+      "file": "conversation-intelligence.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6905"
+    },
+    {
+      "file": "conversation-intelligence.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:30"
+    },
+    {
+      "file": "conversation-intelligence.php",
+      "patch": "d13634b6-9eec-4855-8169-ce3b8ef8162f.jsonl:37"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6152"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6168"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6168"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6216"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6240"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6240"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "eefa9d74-ca8d-4d0a-98cb-876bb181ab43.jsonl:6249"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "ef41347d-d5cc-47d5-b28b-6b8ade3040ed.jsonl:23"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:23"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:23"
+    },
+    {
+      "file": "conversation-pipeline.php",
+      "patch": "99e1f1e6-ca4a-4bd0-9461-41af36462438.jsonl:25"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+AddType application/vnd.android.package-archive .apk
+
+<IfModule mod_headers.c>
+    Header set Content-Disposition "attachment; filename=\"sales-app.apk\""
+</IfModule>

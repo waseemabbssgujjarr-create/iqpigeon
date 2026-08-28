@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="IQPigeon">
+  <!-- tail -->
+  <path d="M6 40 C2 41 1 45 3 47 C7 46 12 44 15 42 Z" fill="#3f4a5a"/>
+  <!-- body -->
+  <path d="M14 34 C12 22 20 13 31 12 C43 11 52 19 52 31 C52 42 44 50 33 50 C22 50 15 44 14 34 Z" fill="#4a5568"/>
+  <!-- green belly -->
+  <path d="M23 30 C24 40 29 47 36 48 C31 50 24 49 20 44 C17 40 18 33 23 30 Z" fill="#4ade80"/>
+  <path d="M28 26 C33 27 37 33 37 40 C37 45 34 48 30 48 C25 47 22 40 23 32 C24 28 26 26 28 26 Z" fill="#22c55e"/>
+  <!-- head -->
+  <circle cx="42" cy="20" r="12" fill="#4a5568"/>
+  <!-- head shine -->
+  <path d="M36 14 C38 11 43 10 47 12 C43 12 39 14 37 17 Z" fill="#5a6678"/>
+  <!-- eye -->
+  <circle cx="45" cy="19" r="3.4" fill="#0f172a"/>
+  <circle cx="46.1" cy="17.9" r="1.1" fill="#fff"/>
+  <!-- beak -->
+  <path d="M53 20 L61 22 L53 25 Z" fill="#f59e0b"/>
+  <path d="M53 22.5 L61 22 L53 25 Z" fill="#ea580c"/>
+  <!-- feet -->
+  <path d="M28 50 L28 55 M25 55 h6" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+  <path d="M36 50 L36 55 M33 55 h6" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+  <!-- chat bubble -->
+  <g>
+    <rect x="30" y="2" width="18" height="12" rx="4" fill="#22c55e"/>
+    <path d="M35 13 l-2 4 l6 -3 Z" fill="#22c55e"/>
+    <circle cx="35.5" cy="8" r="1.3" fill="#fff"/>
+    <circle cx="39" cy="8" r="1.3" fill="#fff"/>
+    <circle cx="42.5" cy="8" r="1.3" fill="#fff"/>
+  </g>
+</svg>

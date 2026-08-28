@@ -1,0 +1,143 @@
+/**
+ * Google Sans Flex — primary brand font (self-hosted).
+ * Inter remains as fallback if the variable file is not uploaded yet.
+ */
+
+@font-face {
+    font-family: 'Google Sans Flex';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/assets/fonts/GoogleSansFlex-VariableFont.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/assets/fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: italic;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+}
+
+:root {
+    --font-sans: 'Google Sans Flex', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+}
+
+html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-weight: var(--font-weight-regular);
+    font-style: normal;
+}
+
+.font-display,
+.font-headline,
+h1, .h1 {
+    font-family: var(--font-sans);
+    font-weight: var(--font-weight-extrabold);
+    font-style: normal;
+    letter-spacing: -0.025em;
+}
+
+.font-title,
+h2, h3, h4, .h2, .h3 {
+    font-family: var(--font-sans);
+    font-weight: var(--font-weight-bold);
+    font-style: normal;
+    letter-spacing: -0.02em;
+}
+
+.font-body,
+.font-label,
+p, li, td, th, input, textarea, select, button {
+    font-family: var(--font-sans);
+}
+
+.font-label {
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+}
+
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+.font-regular { font-weight: var(--font-weight-regular); }
+.font-italic { font-style: italic; }
+
+em, i, cite, .italic { font-style: italic; }
+
+strong, b {
+    font-weight: var(--font-weight-bold);
+    font-style: normal;
+}
+
+blockquote {
+    font-style: italic;
+    font-weight: var(--font-weight-regular);
+    border-left: 3px solid var(--color-outline-variant, #c4c7c9);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--color-on-surface-variant, #414942);
+}
+
+/* Theme-aware logos */
+.brand-logo-img {
+    display: block;
+    height: 2.75rem;
+    width: auto;
+    max-width: 12.5rem;
+    min-width: 7.5rem;
+    object-fit: contain;
+    object-position: left center;
+}
+
+.brand-logo-img--sm {
+    height: 2.25rem;
+    max-width: 10.5rem;
+    min-width: 6.5rem;
+}
+
+.brand-logo-img--sidebar {
+    height: 2.5rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.brand-logo--light-bg { display: block; }
+.brand-logo--dark-bg { display: none; }
+html.dark .brand-logo--light-bg { display: none; }
+html.dark .brand-logo--dark-bg { display: block; }
+
+/* Sidebar/mobile nav override .brand-logo-img--sidebar { display:block } — keep one logo visible */
+.client-sidebar-brand .brand-logo--light-bg,
+.client-mobile-menu-drawer__head .brand-logo--light-bg { display: block; }
+.client-sidebar-brand .brand-logo--dark-bg,
+.client-mobile-menu-drawer__head .brand-logo--dark-bg { display: none; }
+html.dark .client-sidebar-brand .brand-logo--light-bg,
+html.dark .client-mobile-menu-drawer__head .brand-logo--light-bg { display: none; }
+html.dark .client-sidebar-brand .brand-logo--dark-bg,
+html.dark .client-mobile-menu-drawer__head .brand-logo--dark-bg { display: block; }
+
+.admin-sidebar-brand .brand-logo-img,
+.admin-sidebar-brand .brand-logo-img--sm {
+    max-width: 9.5rem;
+    min-width: 5.5rem;
+}

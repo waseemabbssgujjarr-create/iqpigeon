@@ -1,0 +1,291 @@
+/**
+ * IQ Pigeon — unified UI controls & admin layout
+ * One radius system: 12px controls, 16px cards. Pills only for status chips.
+ */
+
+/* ─── Shared control tokens (used across admin, client, auth) ─── */
+:root {
+    --ui-radius: 12px;
+    --ui-radius-card: 16px;
+    --ui-height: 44px;
+    --ui-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --ui-border: 1px solid var(--color-outline-variant);
+}
+
+/* ─── Admin layout: center content, fix left-stuck max-w pages ─── */
+body.admin-app {
+    background: var(--color-background);
+}
+
+.admin-sidebar ~ .app-main,
+.admin-sidebar ~ .md\:ml-64 {
+    box-sizing: border-box;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+@media (min-width: 768px) {
+    .admin-sidebar ~ .app-main:not([class*="max-w-"]),
+    .admin-sidebar ~ .md\:ml-64:not([class*="max-w-"]) {
+        padding-left: max(1rem, calc((100vw - 16rem - var(--content-max-admin, 68rem)) / 2));
+        padding-right: max(1rem, calc((100vw - 16rem - var(--content-max-admin, 68rem)) / 2));
+    }
+
+    .admin-sidebar ~ .app-main:not([class*="max-w-"]) .px-edge-margin,
+    .admin-sidebar ~ .md\:ml-64:not([class*="max-w-"]) .px-edge-margin {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .admin-sidebar ~ .app-main:not([class*="max-w-"]) .mx-edge-margin,
+    .admin-sidebar ~ .md\:ml-64:not([class*="max-w-"]) .mx-edge-margin {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    /* Center narrow admin pages (plans, settings, etc.) */
+    .admin-sidebar ~ .max-w-lg.md\:ml-64,
+    .admin-sidebar ~ .app-main.max-w-lg {
+        margin-left: calc(16rem + max(0px, (100vw - 16rem - 32rem) / 2)) !important;
+        margin-right: auto;
+        width: min(32rem, calc(100vw - 16rem - 2rem));
+    }
+
+    .admin-sidebar ~ .max-w-2xl.md\:ml-64,
+    .admin-sidebar ~ .app-main.max-w-2xl {
+        margin-left: calc(16rem + max(0px, (100vw - 16rem - 42rem) / 2)) !important;
+        margin-right: auto;
+        width: min(42rem, calc(100vw - 16rem - 2rem));
+    }
+
+    .admin-sidebar ~ .max-w-3xl.md\:ml-64,
+    .admin-sidebar ~ .app-main.max-w-3xl {
+        margin-left: calc(16rem + max(0px, (100vw - 16rem - 48rem) / 2)) !important;
+        margin-right: auto;
+        width: min(48rem, calc(100vw - 16rem - 2rem));
+    }
+
+    .admin-sidebar ~ .max-w-5xl.md\:ml-64,
+    .admin-sidebar ~ .app-main.max-w-5xl {
+        margin-left: calc(16rem + max(0px, (100vw - 16rem - 64rem) / 2)) !important;
+        margin-right: auto;
+        width: min(64rem, calc(100vw - 16rem - 2rem));
+    }
+}
+
+/* ─── Admin: unified inputs (12px — NOT pill) ─── */
+body.admin-app .app-main input[type="search"],
+body.admin-app .app-main input[type="text"],
+body.admin-app .app-main input[type="email"],
+body.admin-app .app-main input[type="password"],
+body.admin-app .app-main input[type="number"],
+body.admin-app .app-main input[type="url"],
+body.admin-app .app-main select,
+body.admin-app .md\:ml-64 input[type="search"],
+body.admin-app .md\:ml-64 input[type="text"],
+body.admin-app .md\:ml-64 input[type="email"],
+body.admin-app .md\:ml-64 input[type="password"],
+body.admin-app .md\:ml-64 select {
+    border-radius: var(--ui-radius) !important;
+    border: var(--ui-border) !important;
+    background: var(--color-surface-container-lowest) !important;
+    box-shadow: var(--ui-shadow);
+    min-height: var(--ui-height);
+}
+
+body.admin-app .app-main textarea,
+body.admin-app .md\:ml-64 textarea {
+    border-radius: var(--ui-radius) !important;
+    border: var(--ui-border) !important;
+    background: var(--color-surface-container-lowest) !important;
+    box-shadow: var(--ui-shadow);
+}
+
+body.admin-app .app-main input:focus,
+body.admin-app .app-main select:focus,
+body.admin-app .app-main textarea:focus,
+body.admin-app .md\:ml-64 input:focus,
+body.admin-app .md\:ml-64 select:focus,
+body.admin-app .md\:ml-64 textarea:focus {
+    outline: none;
+    border-color: var(--color-accent, #4aad36) !important;
+    box-shadow: 0 0 0 3px rgba(74, 173, 54, 0.12);
+}
+
+/* Admin buttons — 12px, not pill */
+body.admin-app .app-main a.bg-primary,
+body.admin-app .app-main button.bg-primary,
+body.admin-app .md\:ml-64 a.bg-primary,
+body.admin-app .md\:ml-64 button.bg-primary,
+body.admin-app .quick-actions-grid a {
+    border-radius: var(--ui-radius) !important;
+}
+
+body.admin-app .stat-card,
+body.admin-app .divide-y.bg-surface-container-lowest,
+body.admin-app .bg-surface-container-lowest.rounded-2xl.border {
+    border-radius: var(--ui-radius-card) !important;
+    box-shadow: var(--ui-shadow);
+}
+
+/* Admin mobile cards (WhatsApp clients, etc.) */
+.admin-mobile-card {
+    background: var(--color-surface-container-lowest);
+    border: var(--ui-border);
+    border-radius: var(--ui-radius-card);
+    padding: 0.875rem 1rem;
+    box-shadow: var(--ui-shadow);
+}
+
+.admin-mobile-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.admin-mobile-card__meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--color-on-surface-variant);
+}
+
+.admin-mobile-card__meta dt {
+    font-weight: 600;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-outline);
+}
+
+.admin-mobile-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-outline-variant);
+}
+
+.admin-mobile-card__actions button,
+.admin-mobile-card__actions a {
+    border-radius: var(--ui-radius);
+    min-height: 36px;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Integrations — tighter mobile */
+@media (max-width: 767px) {
+    body.admin-app .integration-section {
+        padding: 0.875rem !important;
+        margin-bottom: 0.75rem;
+    }
+
+    body.admin-app .integration-section__head {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+    }
+
+    body.admin-app .integration-status-grid {
+        gap: 0.5rem;
+    }
+
+    body.admin-app .integration-status-card {
+        padding: 0.625rem 0.75rem;
+    }
+
+    body.admin-app .integration-section .grid.md\:grid-cols-2,
+    body.admin-app .integration-section .grid.md\:grid-cols-3 {
+        gap: 0.75rem;
+    }
+
+    /* Admin filter rows stack on mobile */
+    body.admin-app .app-main form .flex.gap-sm,
+    body.admin-app .md\:ml-64 form .flex.gap-sm {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    body.admin-app .app-main form .flex.gap-sm select,
+    body.admin-app .md\:ml-64 form .flex.gap-sm select,
+    body.admin-app .app-main form .flex.gap-sm button,
+    body.admin-app .md\:ml-64 form .flex.gap-sm button {
+        width: 100%;
+    }
+}
+
+/* ─── Client: unified controls ─── */
+body.client-app .client-main:not(.client-main--chat) input[type="text"],
+body.client-app .client-main:not(.client-main--chat) input[type="email"],
+body.client-app .client-main:not(.client-main--chat) input[type="password"],
+body.client-app .client-main:not(.client-main--chat) input[type="search"],
+body.client-app .client-main:not(.client-main--chat) input[type="tel"],
+body.client-app .client-main:not(.client-main--chat) input[type="url"],
+body.client-app .client-main:not(.client-main--chat) select:not([multiple]) {
+    border-radius: var(--ui-radius);
+    border: var(--ui-border);
+    box-shadow: var(--ui-shadow);
+    min-height: var(--ui-height);
+}
+
+body.client-app .client-main:not(.client-main--chat) textarea:not(.conversation-composer textarea) {
+    border-radius: var(--ui-radius);
+    border: var(--ui-border);
+    box-shadow: var(--ui-shadow);
+}
+
+body.client-app .client-main .bg-primary.rounded-xl,
+body.client-app .client-main button.bg-primary,
+body.client-app .client-main a.bg-primary {
+    border-radius: var(--ui-radius) !important;
+}
+
+body.client-app .client-segment-tabs button,
+body.client-app .client-segment-tabs a {
+    border-radius: var(--ui-radius);
+}
+
+/* ─── Auth: email/password fields match OAuth row style (12px, not pill) ─── */
+.auth-page {
+    background: var(--color-background);
+}
+
+.auth-input-group {
+    height: var(--ui-height);
+    padding: 0 14px 0 0;
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow);
+}
+
+.auth-input-group__icon {
+    padding-left: 14px;
+}
+
+.auth-input--grouped::placeholder {
+    font-weight: 500;
+    color: var(--color-on-surface-variant);
+}
+
+.auth-submit {
+    height: var(--ui-height);
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow);
+}
+
+.auth-oauth-btn {
+    height: var(--ui-height);
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow);
+}
+
+.auth-divider__text {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-outline);
+}
