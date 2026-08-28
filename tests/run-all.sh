@@ -55,6 +55,7 @@ PHP_TESTS=(
   conversation-turn-engine-test.php
   conversation-intelligence-test.php
   conversation-scenarios-test.php
+  agent-core-test.php
   full-system-test.php
 )
 

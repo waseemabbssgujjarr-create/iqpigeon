@@ -1517,6 +1517,20 @@ function wa_auto_reply_compose(array $bot, int $leadId, string $userMessage, int
     if (!empty($GLOBALS['wa_webhook_budget'])) {
         wa_auto_reply_persist_inbound($leadId, $userMessage);
 
+        require_once __DIR__ . '/agent-core/bootstrap.php';
+        if (agent_core_enabled($bot)) {
+            require_once __DIR__ . '/agent-core/agent-core.php';
+            try {
+                $core = agent_core_reply($bot, $leadId, $userMessage, $turnId, 'whatsapp');
+                $coreReply = trim((string) ($core['reply'] ?? ''));
+                if ($coreReply !== '') {
+                    return ['reply' => $coreReply, 'path' => 'agent_core'];
+                }
+            } catch (Throwable $coreErr) {
+                error_log('wa_auto_reply_compose agent_core #' . $turnId . ': ' . $coreErr->getMessage());
+            }
+        }
+
         return ['reply' => wa_webhook_mind_reply($bot, $leadId, $userMessage), 'path' => 'webhook_mind'];
     }
 
@@ -1699,7 +1713,9 @@ function wa_auto_reply_deliver_turn(array $turn, array $bot, string $phoneId, st
             wa_auto_reply_human_ux_before_send($turnId, $leadId, $phoneId, $token);
         }
 
-        if (empty($GLOBALS['wa_webhook_budget'])
+        require_once __DIR__ . '/agent-core/bootstrap.php';
+        $agentCoreOn = agent_core_enabled($bot);
+        if (($agentCoreOn || empty($GLOBALS['wa_webhook_budget']))
             && $turnId > 0
             && function_exists('turn_engine_process_turn_media')
             && !wa_auto_reply_turn_is_text_only($turnId)

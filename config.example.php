@@ -94,6 +94,11 @@ define('TURN_MEDIA_DEBOUNCE_MS', 7000);
 define('TURN_MAX_WINDOW_MS', 30000);
 define('HUMAN_AGENT_PURE_MODE', true);
 
+// Agent Core Phase 1 (WhatsApp compose). Default OFF. Empty BOT_IDS = nobody.
+// To opt in a NON-production test bot later: ENABLED true AND comma-separated ids (never 57 until authorized).
+define('AGENT_CORE_ENABLED', false);
+define('AGENT_CORE_BOT_IDS', '');
+
 // Live WhatsApp demo — wa.me link shown on landing page for instant testing
 define('WHATSAPP_DEMO_URL', 'https://wa.me/923114522101');
 define('WHATSAPP_DEMO_MESSAGE', 'Hi! I would like to test the AI sales bot.');

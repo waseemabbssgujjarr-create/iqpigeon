@@ -668,5 +668,18 @@ assert_test(
     'TEST 49 freelancer/coaching uses training services, never a restaurant menu'
 );
 
+$phase1Core = file_get_contents($root . '/includes/whatsapp-auto-reply-core.php') ?: '';
+$phase1Hold = file_get_contents($root . '/includes/wa-recover-lite.php') ?: '';
+assert_test(
+    str_contains($phase1Core, 'agent_core_enabled($bot)')
+    && str_contains($phase1Core, "'path' => 'agent_core'")
+    && str_contains($phase1Core, "'path' => 'webhook_mind'")
+    && str_contains($engineSrc, "\$GLOBALS['wa_skip_openai'] = true")
+    && str_contains($phase1Hold, 'return [720, 635, 321, 306, 302, 134]')
+    && (defined('AGENT_CORE_ENABLED') ? AGENT_CORE_ENABLED === false : true)
+    && str_contains($webhookSrc, 'function wa_webhook_ack_meta'),
+    'TEST 50 Phase 1 compose fork exists; default Core OFF; ACK/hold/skip_openai unchanged'
+);
+
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed > 0 ? 1 : 0);
