@@ -61,6 +61,16 @@ try {
         exit;
     }
 
+    require_once __DIR__ . '/../includes/agent-core/bootstrap.php';
+    if (agent_core_enabled($bot)) {
+        require_once __DIR__ . '/../includes/agent-core/agent-core.php';
+        $core = agent_core_channel_try($bot, 0, $message, 0, 'bot-chat');
+        if (agent_core_result_usable($core)) {
+            echo json_encode(['ok' => true, 'reply' => $core['reply'], 'path' => 'agent_core']);
+            exit;
+        }
+    }
+
     $companyName = trim((string) ($user['company_name'] ?? ''));
     if ($companyName === '') {
         $companyName = trim((string) ($bot['name'] ?? APP_NAME));

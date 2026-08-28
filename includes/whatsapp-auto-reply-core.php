@@ -1521,7 +1521,7 @@ function wa_auto_reply_compose(array $bot, int $leadId, string $userMessage, int
         if (agent_core_enabled($bot)) {
             require_once __DIR__ . '/agent-core/agent-core.php';
             try {
-                $core = agent_core_reply($bot, $leadId, $userMessage, $turnId, 'whatsapp');
+                $core = agent_core_channel_try($bot, $leadId, $userMessage, $turnId, 'whatsapp');
                 if (agent_core_result_usable($core)) {
                     return ['reply' => trim((string) $core['reply']), 'path' => 'agent_core'];
                 }

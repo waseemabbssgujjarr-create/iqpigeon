@@ -84,6 +84,11 @@ function agent_core_mind_ctx_from_plan(array $pack, array $plan, array $toolResu
                     $catalogLines[] = 'product: ' . $n;
                 }
             }
+        } elseif ($name === 'catalog.get_product' && is_array($data)) {
+            $n = trim((string) ($data['name'] ?? ''));
+            if ($n !== '') {
+                $catalogLines[] = 'product: ' . $n;
+            }
         } elseif ($name === 'booking.offer' && is_string($data) && $data !== '') {
             $catalogLines[] = $data;
         } elseif ($name === 'cart.view' && is_string($data) && $data !== '') {
@@ -96,17 +101,38 @@ function agent_core_mind_ctx_from_plan(array $pack, array $plan, array $toolResu
         $biz = $biz !== '' ? [(string) $biz] : [];
     }
     $biz = array_merge($biz, is_array($conv['business_facts'] ?? null) ? $conv['business_facts'] : []);
+    $qual = trim((string) ($pack['qualify_read'] ?? ''));
+    if ($qual !== '') {
+        $biz[] = 'Qualify questions (internal, do not dump as a form): ' . mb_substr($qual, 0, 400);
+    }
     if ($catalogLines !== []) {
         $biz[] = implode("\n", $catalogLines);
     }
 
     $route = is_array($plan['route'] ?? null) ? $plan['route'] : [];
     $answerKind = (string) ($plan['answer_kind'] ?? '');
+    $mediaBits = [];
+    foreach (is_array($turnCtx['understanding'] ?? null) ? $turnCtx['understanding'] : [] as $u) {
+        $t = (string) ($u['type'] ?? '');
+        if ($t === 'image' && trim((string) ($u['image_description'] ?? '')) !== '') {
+            $mediaBits[] = 'image: ' . mb_substr((string) $u['image_description'], 0, 180);
+        } elseif ($t === 'audio' && trim((string) ($u['text'] ?? '')) !== '') {
+            $mediaBits[] = 'voice: ' . mb_substr((string) $u['text'], 0, 180);
+        } elseif ($t === 'document' && trim((string) ($u['extracted_content'] ?? '')) !== '') {
+            $mediaBits[] = 'document: ' . mb_substr((string) $u['extracted_content'], 0, 180);
+        }
+    }
     $planNote = 'INTERNAL PLAN: Answer this first: ' . (string) ($plan['answer_first'] ?? '')
         . '. Answer kind: ' . ($answerKind !== '' ? $answerKind : (string) ($plan['outcome'] ?? ''))
         . '. Source: ' . (string) ($plan['source'] ?? '')
-        . '. Do not open a menu or catalog unless catalog.search or cart.view ran.'
-        . ' If live evidence is missing for a current-world question, say you could not verify it.';
+        . '. Asked: ' . mb_substr((string) ($plan['asked'] ?? ''), 0, 180)
+        . '. Referent: ' . (string) ($plan['referent'] ?? '')
+        . '. Do not open a menu or catalog unless catalog.search, catalog.get_product, or cart.view ran.'
+        . ' If live evidence is missing for a current-world question, say you could not verify it.'
+        . ' Do not mention tools, plans, or internal stages.';
+    if ($mediaBits !== []) {
+        $planNote .= ' Media understanding: ' . implode(' | ', $mediaBits);
+    }
     if ($retryHint !== '') {
         $planNote .= ' ' . $retryHint;
     }

@@ -43,6 +43,24 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
 
             return ['ok' => true, 'name' => $name, 'data' => $hits];
         }
+        if ($name === 'catalog.get_product') {
+            require_once dirname(__DIR__) . '/catalog.php';
+            $productId = (int) ($args['product_id'] ?? 0);
+            if ($productId <= 0 && preg_match('/(\d+)/', $query, $m)) {
+                $productId = (int) $m[1];
+            }
+            $product = null;
+            if ($botId > 0 && $productId > 0 && function_exists('catalog_products_for_bot')) {
+                foreach (catalog_products_for_bot($botId) as $row) {
+                    if ((int) ($row['id'] ?? 0) === $productId) {
+                        $product = $row;
+                        break;
+                    }
+                }
+            }
+
+            return ['ok' => $product !== null, 'name' => $name, 'data' => $product];
+        }
         if ($name === 'cart.view') {
             require_once dirname(__DIR__) . '/cart.php';
             $block = $leadId > 0 && $botId > 0 ? cart_ai_context_block($leadId, $botId) : '';
@@ -84,7 +102,7 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
                 return ['ok' => true, 'name' => $name, 'data' => ['needed' => true, 'ok' => false, 'evidence' => '', 'skipped' => 'no_network']];
             }
             require_once dirname(__DIR__) . '/live-world-info.php';
-            $thread = '';
+            $thread = trim((string) ($args['thread'] ?? $turnCtx['thread'] ?? ''));
             $found = live_world_maybe_search($query, $thread);
             if (empty($found['needed']) && $query !== '' && function_exists('live_world_search')) {
                 $direct = live_world_search($query);

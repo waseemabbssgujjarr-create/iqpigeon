@@ -62,14 +62,37 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
     $media = is_array($turnCtx['media'] ?? null) ? $turnCtx['media'] : [];
     $hasImage = false;
     $imageDescribed = false;
+    $hasAudio = false;
+    $hasDocument = false;
     foreach ($media as $item) {
-        $type = (string) ($item['type'] ?? '');
-        if (in_array($type, ['image', 'photo'], true) || str_contains(mb_strtolower((string) ($item['text'] ?? '')), '[customer image]')) {
+        $type = mb_strtolower((string) ($item['type'] ?? ''));
+        if (in_array($type, ['image', 'photo', 'picture', 'sticker'], true) || str_contains(mb_strtolower((string) ($item['text'] ?? '')), '[customer image]')) {
             $hasImage = true;
-            $desc = trim((string) ($item['description'] ?? ''));
+            $desc = trim((string) ($item['description'] ?? $item['image_description'] ?? ''));
             if ($desc !== '' && !str_contains(mb_strtolower($desc), 'analysis unavailable')) {
                 $imageDescribed = true;
             }
+        }
+        if (in_array($type, ['audio', 'voice', 'ptt', 'audio_message'], true) || trim((string) ($item['transcript'] ?? '')) !== '') {
+            $hasAudio = true;
+        }
+        if (in_array($type, ['document', 'file', 'pdf', 'doc'], true) || trim((string) ($item['extracted_content'] ?? '')) !== '') {
+            $hasDocument = true;
+        }
+    }
+    foreach (is_array($turnCtx['understanding'] ?? null) ? $turnCtx['understanding'] : [] as $u) {
+        $ut = (string) ($u['type'] ?? '');
+        if ($ut === 'image') {
+            $hasImage = true;
+            if (trim((string) ($u['image_description'] ?? '')) !== '') {
+                $imageDescribed = true;
+            }
+        }
+        if ($ut === 'audio') {
+            $hasAudio = true;
+        }
+        if ($ut === 'document') {
+            $hasDocument = true;
         }
     }
     if (str_contains($msg, '[customer image]') || str_contains($msg, 'image received')) {
@@ -89,14 +112,26 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
     $needsWeb = !empty($source['needs_web']) || agent_core_looks_like_live_world($msg);
     $shopAsk = (bool) preg_match('/\b(menu|catalog|catalogue|add #\d|checkout|my cart)\b/u', $msg)
         || (bool) preg_match('/\b(what do you (sell|have)|show me (the )?(menu|items))\b/u', $msg);
+    $productAsk = (bool) preg_match('/\b(do you have|got any|is there)\b/u', $msg)
+        && !preg_match('/\b(the black one|the white one|that one|this one)\b/u', $msg);
+    $mixed = $needsWeb && (
+        $shopAsk
+        || $productAsk
+        || !empty($source['needs_hours'])
+        || !empty($source['needs_catalog'])
+        || (bool) preg_match('/\b(hours?|open|pasta|pizza|burger)\b/u', $msg)
+    );
 
     return [
-        'media'            => $saysPhoto || ($hasImage && $msg === ''),
+        'media'            => $saysPhoto || $hasDocument || $hasImage,
+        'has_audio'        => $hasAudio,
+        'has_document'     => $hasDocument,
         'has_image'        => $hasImage,
         'image_described'  => $imageDescribed,
         'correction'       => (bool) preg_match('/\b(why (didn\'?t|did not|don\'?t) you (answer|reply|respond)|you didn\'?t (answer|understand|listen)|that\'?s not what i asked)\b/u', $msg),
         'chase_up'         => (bool) preg_match('/\b(why (don\'?t|didn\'?t|won\'?t) you (reply|respond)|are you there|please reply)\b/u', $msg),
-        'live_world'       => $needsWeb && !agent_core_looks_like_business_catalog($msg),
+        'live_world'       => $needsWeb && !agent_core_looks_like_business_catalog($msg) && !$mixed,
+        'mixed'            => $mixed,
         'needs_hours'      => !empty($source['needs_hours']),
         'booking'          => (bool) preg_match(
             '/\b(book me|book (a |an )?(table|slot|appointment|call)|appointment|reserve|reservation|tomorrow at|at \d{1,2}(:\d{2})?\s*(am|pm)?)\b/u',
@@ -110,10 +145,14 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
         'catalog'          => $shopAsk && $hasCatalog && !($needsWeb && !agent_core_looks_like_business_catalog($msg)),
         'business_inquiry' => (bool) preg_match('/\b(hours?|open|address|where (are you|is the)|what do you offer|what (services|packages))\b/u', $msg),
         'identity'         => (bool) preg_match('/\b(who are you|are you (a )?(bot|ai|human))\b/u', $msg),
-        'off_topic'        => $text === '' && !$hasImage && !$saysPhoto,
+        'company'          => (bool) preg_match('/\b(your (company|business|restaurant|clinic|agency)|about (this|your) (company|business|restaurant)|what (is|does) this (company|business))\b/u', $msg),
+        'general'          => (bool) preg_match('/\b(tell me a joke|make me laugh|fun fact|riddle)\b/u', $msg),
+        'clarification'    => (bool) preg_match('/^(what|huh|pardon)\??$/u', $msg) || (bool) preg_match('/\b(you didn\'?t understand|didn\'?t (get|understand)|confused)\b/u', $msg),
+        'off_topic'        => $text === '' && !$hasImage && !$saysPhoto && !$hasAudio && !$hasDocument,
         'has_booking'      => $hasBooking,
         'has_catalog'      => $hasCatalog,
         'shop_ask'         => $shopAsk,
+        'product_ask'      => $productAsk,
         'wants_cart'       => str_contains($msg, 'cart'),
     ];
 }
@@ -164,6 +203,23 @@ function agent_core_intent_apply_overrides(array $intent, array $signals, array 
         return $intent;
     }
 
+    if (!empty($signals['mixed'])) {
+        $intent['kind'] = 'MIXED';
+        $intent['confidence'] = 0.86;
+        $intent['needs_web'] = true;
+        $tools = ['live_web.search'];
+        if (!empty($signals['needs_hours'])) {
+            $tools[] = 'hours.read';
+        }
+        if (!empty($signals['shop_ask']) || !empty($signals['product_ask']) || !empty($signals['catalog'])) {
+            $tools[] = 'catalog.search';
+        }
+        $intent['tools'] = array_values(array_unique($tools));
+        $intent['override'] = 'MIXED';
+
+        return $intent;
+    }
+
     if (!empty($signals['live_world'])) {
         $intent['kind'] = 'LIVE_WORLD';
         $intent['confidence'] = 0.88;
@@ -198,6 +254,17 @@ function agent_core_intent_apply_overrides(array $intent, array $signals, array 
         return $intent;
     }
 
+    if (!empty($signals['clarification'])) {
+        $intent['kind'] = 'CLARIFICATION';
+        $intent['confidence'] = 0.8;
+        $intent['continue_thread'] = true;
+        $intent['clarification_needed'] = true;
+        $intent['tools'] = [];
+        $intent['override'] = 'CLARIFICATION';
+
+        return $intent;
+    }
+
     if (!empty($signals['greeting'])) {
         $intent['kind'] = 'GREETING';
         $intent['confidence'] = 0.82;
@@ -212,6 +279,16 @@ function agent_core_intent_apply_overrides(array $intent, array $signals, array 
         $intent['confidence'] = 0.75;
         $intent['tools'] = [];
         $intent['override'] = 'SOCIAL';
+
+        return $intent;
+    }
+
+    if (!empty($signals['general'])) {
+        $intent['kind'] = 'GENERAL';
+        $intent['confidence'] = 0.72;
+        $intent['tools'] = [];
+        $intent['continue_thread'] = false;
+        $intent['override'] = 'GENERAL';
 
         return $intent;
     }
@@ -236,6 +313,15 @@ function agent_core_intent_apply_overrides(array $intent, array $signals, array 
 
     if (!empty($signals['identity'])) {
         $intent['kind'] = 'IDENTITY';
+        $intent['confidence'] = 0.8;
+        $intent['tools'] = [];
+        $intent['override'] = 'IDENTITY';
+
+        return $intent;
+    }
+
+    if (!empty($signals['company'])) {
+        $intent['kind'] = 'BUSINESS_INQUIRY';
         $intent['confidence'] = 0.8;
         $intent['tools'] = [];
         $intent['override'] = 'IDENTITY';
@@ -292,7 +378,8 @@ function agent_core_map_mind_intent(string $mind): string
         'BUSINESS_INQUIRY'      => 'BUSINESS_INQUIRY',
         'PERSONAL_CONVERSATION', 'CASUAL_CONVERSATION' => 'SOCIAL',
         'GREETING'              => 'GREETING',
-        'CLARIFICATION', 'FOLLOW_UP' => 'FOLLOW_UP',
+        'CLARIFICATION'         => 'CLARIFICATION',
+        'FOLLOW_UP'             => 'FOLLOW_UP',
         default                 => 'FOLLOW_UP',
     };
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 /** @var list<string> */
 const AGENT_CORE_PHASE1_TOOLS = [
     'catalog.search',
+    'catalog.get_product',
     'cart.view',
     'booking.offer',
     'memory.read',
@@ -29,7 +30,7 @@ function agent_core_answer_kind(array $intent, array $source): string
             $flags++;
         }
     }
-    if ($flags >= 2 || (string) ($source['primary'] ?? '') === 'MIXED') {
+    if ($flags >= 2 || (string) ($source['primary'] ?? '') === 'MIXED' || (string) ($intent['kind'] ?? '') === 'MIXED') {
         return 'MIXED';
     }
     $kind = (string) ($intent['kind'] ?? 'FOLLOW_UP');
@@ -88,9 +89,21 @@ function agent_core_plan(array $turnCtx, array $conv, array $intent, array $sour
     if (!empty($source['needs_catalog'])) {
         $wanted[] = 'catalog.search';
     }
-    if (!empty($source['needs_memory']) || !empty($intent['continue_thread']) || $kind === 'CORRECTION'
+    $productId = (int) ($intent['product_id'] ?? $turnCtx['product_id'] ?? 0);
+    if ($productId <= 0 && preg_match('/(?:^|\s)#(\d+)\b/u', $text, $m)) {
+        $productId = (int) $m[1];
+    }
+    if ($productId > 0) {
+        $wanted[] = 'catalog.get_product';
+    }
+    $casualKind = in_array($kind, ['SOCIAL', 'GREETING', 'OFF_TOPIC', 'IDENTITY', 'GENERAL'], true);
+    $wantMemory = !empty($intent['continue_thread']) || $kind === 'CORRECTION'
         || ((int) ($turnCtx['lead_id'] ?? 0) > 0 && (int) ($turnCtx['bot_id'] ?? 0) > 0)
-    ) {
+        || (is_array($conv['runtime_facts'] ?? null) && $conv['runtime_facts'] !== []);
+    if (!$casualKind && !empty($source['needs_memory'])) {
+        $wantMemory = true;
+    }
+    if ($wantMemory) {
         $wanted[] = 'memory.read';
     }
 
@@ -108,20 +121,45 @@ function agent_core_plan(array $turnCtx, array $conv, array $intent, array $sour
         if ($name === 'live_web.search') {
             $args['query'] = (string) ($source['search_query'] ?? $text);
         }
+        if ($name === 'catalog.get_product') {
+            $args['product_id'] = $productId;
+        }
         $calls[] = ['name' => $name, 'args' => $args];
     }
 
-    $casual = in_array($kind, ['SOCIAL', 'GREETING', 'OFF_TOPIC', 'IDENTITY'], true);
+    $casual = in_array($kind, ['SOCIAL', 'GREETING', 'OFF_TOPIC', 'IDENTITY', 'GENERAL'], true);
     $answerKind = agent_core_answer_kind($intent, $source);
+    $available = [];
+    $missing = [];
+    foreach (['needs_web' => 'live_web', 'needs_hours' => 'hours', 'needs_orders' => 'orders', 'needs_catalog' => 'catalog', 'needs_memory' => 'memory'] as $flag => $label) {
+        if (!empty($source[$flag])) {
+            $available[] = $label;
+        }
+    }
+    if (!empty($intent['needs_web'])) {
+        $missing[] = 'live_evidence';
+    }
+    if (!empty($intent['clarification_needed'])) {
+        $missing[] = 'referent';
+    }
+    if ($kind === 'MEDIA' && !empty($intent['clarification_needed'])) {
+        $missing[] = 'media_description';
+    }
 
     return [
-        'outcome'      => $kind,
-        'answer_kind'  => $answerKind,
-        'answer_first' => $answerFirst,
-        'source'       => (string) ($source['primary'] ?? 'GENERAL_GPT'),
-        'route'        => $source,
-        'tool_calls'   => $calls,
-        'allow_casual' => $casual,
-        'brand'        => (string) ($pack['brand'] ?? ''),
+        'outcome'               => $kind,
+        'answer_kind'           => $answerKind,
+        'answer_first'          => $answerFirst,
+        'source'                => (string) ($source['primary'] ?? 'GENERAL_GPT'),
+        'route'                 => $source,
+        'tool_calls'            => $calls,
+        'allow_casual'          => $casual,
+        'brand'                 => (string) ($pack['brand'] ?? ''),
+        'asked'                 => $text,
+        'referent'              => (string) ($intent['referent'] ?? ''),
+        'available'             => $available,
+        'missing'               => array_values(array_unique($missing)),
+        'clarification_needed'  => !empty($intent['clarification_needed']),
+        'action'                => $answerKind,
     ];
 }

@@ -39,6 +39,9 @@ $runSrc = file_get_contents($root . '/includes/agent-core/agent-core.php') ?: ''
 $bootSrc = file_get_contents($root . '/includes/agent-core/bootstrap.php') ?: '';
 $budgetSrc = file_get_contents($root . '/includes/agent-core/budget.php') ?: '';
 $intentSrc = file_get_contents($root . '/includes/agent-core/intent.php') ?: '';
+$pipelineSrc = file_get_contents($root . '/includes/agent-core/pipeline.php') ?: '';
+$channelSrc = file_get_contents($root . '/includes/agent-core/channel.php') ?: '';
+$botChatSrc = file_get_contents($root . '/api/bot-chat.php') ?: '';
 
 ac_assert(defined('AGENT_CORE_ENABLED') && AGENT_CORE_ENABLED === false, 'master flag default false');
 ac_assert(agent_core_bot_ids() === [], 'allow-list empty by default');
@@ -138,6 +141,7 @@ ac_assert(
 ac_assert(
     str_contains($toolsSrc, "'hours.read'")
     && str_contains($toolsSrc, "'orders.read'")
+    && str_contains($toolsSrc, "'catalog.get_product'")
     && str_contains($toolsSrc, 'conversation_runtime_hours_now')
     && str_contains($toolsSrc, 'conversation_runtime_load_orders'),
     'hours and order history are real read-only tools'
@@ -336,9 +340,9 @@ ac_assert(
 );
 
 ac_assert(
-    !str_contains($runSrc, "Got you. I'm listening")
-    && str_contains($runSrc, "return \$fail('validation_failed'")
-    && str_contains($runSrc, "return \$fail('empty_compose'"),
+    !str_contains($pipelineSrc, "Got you. I'm listening")
+    && str_contains($pipelineSrc, "return \$fail('validation_failed'")
+    && str_contains($pipelineSrc, "return \$fail('empty_compose'"),
     'Core run does not send a generic listening line on failure'
 );
 
@@ -408,6 +412,195 @@ ac_assert(
     && $blocked === false
     && str_contains($engineSrc, "\$GLOBALS['wa_skip_openai'] = true"),
     'skip_openai blocks human OpenAI but still allows mind generate on budgeted turns'
+);
+
+ac_assert(
+    agent_core_stage_names() === [
+        'INPUT', 'UNDERSTAND', 'CONTEXT', 'MEMORY', 'INTENT', 'SOURCES',
+        'PLAN', 'TOOLS', 'GENERATE', 'VALIDATE', 'HUMANIZE', 'DELIVERY',
+    ]
+    && str_contains($pipelineSrc, 'function agent_core_pipeline')
+    && str_contains($runSrc, 'agent_core_pipeline($ctx)')
+    && str_contains($channelSrc, 'function agent_core_channel_try')
+    && str_contains($botChatSrc, 'agent_core_channel_try($bot, 0, $message, 0, \'bot-chat\')'),
+    '12-stage pipeline exists; bot-chat is an adapter around Core'
+);
+
+$bizAsk = $baseCtx;
+$bizAsk['text'] = 'What do you offer?';
+$bizIntent = agent_core_intent($bizAsk, $emptyConv);
+ac_assert(
+    ($bizIntent['kind'] ?? '') === 'BUSINESS_INQUIRY'
+    && empty($bizIntent['needs_web']),
+    '1 business question is BUSINESS_INQUIRY'
+);
+
+$jokeCtx = $baseCtx;
+$jokeCtx['text'] = 'Tell me a joke';
+$jokeIntent = agent_core_intent($jokeCtx, $emptyConv);
+$jokePlan = agent_core_plan($jokeCtx, $emptyConv, $jokeIntent, agent_core_source_route($jokeCtx, $emptyConv, $jokeIntent), ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+ac_assert(
+    ($jokeIntent['kind'] ?? '') === 'GENERAL'
+    && ($jokePlan['tool_calls'] ?? []) === []
+    && ($jokePlan['allow_casual'] ?? false) === true,
+    '2 general question (joke) is GENERAL, not catalog'
+);
+
+$pastaCtx = $baseCtx;
+$pastaCtx['text'] = 'Do you have pasta and what is the weather today?';
+$pastaIntent = agent_core_intent($pastaCtx, $emptyConv);
+$pastaSource = agent_core_source_route($pastaCtx, $emptyConv, $pastaIntent);
+$pastaPlan = agent_core_plan($pastaCtx, $emptyConv, $pastaIntent, $pastaSource, ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$pastaNames = array_map(static fn ($c) => (string) ($c['name'] ?? ''), $pastaPlan['tool_calls'] ?? []);
+ac_assert(
+    ($pastaIntent['kind'] ?? '') === 'MIXED'
+    && in_array('live_web.search', $pastaNames, true)
+    && in_array('catalog.search', $pastaNames, true),
+    '3 mixed pasta+weather loads catalog.search and live_web.search'
+);
+
+$followPlan = agent_core_plan($blackCtx, $blackConv, $blackIntent, agent_core_source_route($blackCtx, $blackConv, $blackIntent), ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$followNames = array_map(static fn ($c) => (string) ($c['name'] ?? ''), $followPlan['tool_calls'] ?? []);
+ac_assert(
+    ($blackIntent['kind'] ?? '') === 'FOLLOW_UP'
+    && ($followPlan['referent'] ?? '') === 'Black leather bag'
+    && in_array('memory.read', $followNames, true),
+    '4 follow-up uses referent and memory.read'
+);
+
+$corrPlan = agent_core_plan($missedCtx, $missedConv, $missedIntent, ['primary' => 'CONVERSATION_MEMORY', 'needs_web' => false, 'needs_catalog' => false, 'needs_memory' => true, 'needs_hours' => false, 'needs_orders' => false, 'search_query' => ''], ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+ac_assert(
+    ($missedIntent['kind'] ?? '') === 'CORRECTION'
+    && str_contains((string) ($corrPlan['answer_first'] ?? ''), 'petrol'),
+    '5 correction plans the missed thought first'
+);
+
+$usaCtx = $baseCtx;
+$usaCtx['text'] = 'Who is the president of the USA?';
+$usaIntent = agent_core_intent($usaCtx, $emptyConv);
+ac_assert(
+    ($usaIntent['kind'] ?? '') === 'LIVE_WORLD'
+    && ($usaIntent['tools'] ?? []) === ['live_web.search'],
+    '6 current-world question is LIVE_WORLD'
+);
+
+$coCtx = $baseCtx;
+$coCtx['text'] = 'What is this company?';
+$coIntent = agent_core_intent($coCtx, $emptyConv);
+ac_assert(
+    ($coIntent['kind'] ?? '') === 'BUSINESS_INQUIRY'
+    && ($coIntent['override'] ?? '') === 'IDENTITY',
+    '7 business identity/company question'
+);
+
+ac_assert(
+    ($offIntent['kind'] ?? '') === 'OFF_TOPIC',
+    '8 off-topic empty turn'
+);
+
+$ambCtx = $baseCtx;
+$ambCtx['text'] = 'the other one';
+$ambIntent = agent_core_intent($ambCtx, $emptyConv);
+ac_assert(
+    ($ambIntent['kind'] ?? '') === 'FOLLOW_UP'
+    && !empty($ambIntent['clarification_needed'])
+    && ($ambIntent['referent'] ?? '') === '',
+    '9 ambiguous request needs clarification'
+);
+
+$imgU = agent_core_normalize_media_item([
+    'type' => 'image',
+    'description' => 'A plate of pasta with tomato sauce',
+    'text' => '',
+]);
+$imgCtx = $baseCtx;
+$imgCtx['text'] = '';
+$imgCtx['media'] = [['type' => 'image', 'description' => 'A plate of pasta with tomato sauce', 'text' => '']];
+$imgTurn = agent_core_stage_understand($imgCtx);
+$imgIntent = agent_core_intent($imgTurn, $emptyConv);
+ac_assert(
+    ($imgU['type'] ?? '') === 'image'
+    && ($imgU['image_description'] ?? '') === 'A plate of pasta with tomato sauce'
+    && ($imgTurn['understanding'][0]['type'] ?? '') === 'image'
+    && ($imgIntent['kind'] ?? '') === 'MEDIA',
+    '10 image input is first-class MEDIA understanding'
+);
+
+$audioItem = agent_core_normalize_media_item([
+    'type' => 'audio',
+    'transcript' => 'What is the petrol price',
+    'text' => '',
+]);
+$audioCtx = $baseCtx;
+$audioCtx['text'] = '';
+$audioCtx['media'] = [['type' => 'audio', 'transcript' => 'What is the petrol price', 'text' => '']];
+$audioTurn = agent_core_stage_understand($audioCtx);
+ac_assert(
+    ($audioItem['type'] ?? '') === 'audio'
+    && ($audioItem['text'] ?? '') === 'What is the petrol price'
+    && ($audioTurn['text'] ?? '') === 'What is the petrol price',
+    '11 audio/transcript becomes Core text'
+);
+
+$memConv = $blackConv;
+$memConv['runtime_facts'] = ['customer_name' => 'Ahmed', 'interest' => 'black bag'];
+$memPlan = agent_core_plan($blackCtx, $memConv, $blackIntent, agent_core_source_route($blackCtx, $memConv, $blackIntent), ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$memCtx = agent_core_mind_ctx_from_plan(['prompt' => '', 'business_facts' => []], $memPlan, [['name' => 'memory.read', 'data' => $memConv['runtime_facts']]], $blackCtx, $memConv);
+ac_assert(
+    ($memCtx['customer_memory']['customer_name'] ?? '') === 'Ahmed'
+    && in_array('memory.read', array_map(static fn ($c) => (string) ($c['name'] ?? ''), $memPlan['tool_calls'] ?? []), true),
+    '12/13 context referent and memory reach planner and generate ctx'
+);
+
+$idPlan = agent_core_plan($idCtx, $emptyConv, $idIntent, agent_core_source_route($idCtx, $emptyConv, $idIntent), ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$getProd = agent_core_tool('catalog.get_product', ['product_id' => 9, 'query' => '#9'], $baseCtx);
+ac_assert(
+    ($petrolPlan['tool_calls'][0]['name'] ?? '') === 'live_web.search'
+    && ($getProd['name'] ?? '') === 'catalog.get_product'
+    && ($getProd['error'] ?? '') !== 'forbidden_phase1',
+    '14 tool selection: live_web for petrol; catalog.get_product is allowed read-only'
+);
+
+ac_assert(ac_compose_path($threw) === 'webhook_mind', '15 Core failure → webhook_mind fallback');
+ac_assert(ac_compose_path($emptyCore) === 'webhook_mind', '16 empty generation → fallback');
+ac_assert(ac_compose_path($badVal) === 'webhook_mind', '17 validation failure → fallback');
+
+ac_assert(
+    AGENT_CORE_ENABLED === false
+    && str_contains($coreSrc, 'wa_webhook_mind_reply($bot, $leadId, $userMessage)'),
+    '18 Core OFF → legacy webhook_mind path'
+);
+
+ac_assert(
+    agent_core_enabled(['id' => 57]) === false
+    && agent_core_enabled(['id' => 99]) === false
+    && agent_core_bot_ids() === [],
+    '19 allow-list isolation (empty list, bot 57 off)'
+);
+
+ac_assert(
+    !str_contains($runSrc, 'wa_recover_send_whatsapp')
+    && !str_contains($pipelineSrc, 'wa_recover_send_whatsapp')
+    && !str_contains($toolsSrc, 'wa_recover_send_whatsapp')
+    && !str_contains($channelSrc, 'wa_recover_send_whatsapp'),
+    '20 no Graph call from Core'
+);
+
+ac_assert(
+    ($forbidden['error'] ?? '') === 'forbidden_phase1'
+    && agent_core_tool('memory.write', [], $baseCtx)['error'] === 'forbidden_phase1'
+    && agent_core_tool('qualification.update', [], $baseCtx)['error'] === 'forbidden_phase1'
+    && agent_core_tool('cart.remove', [], $baseCtx)['error'] === 'forbidden_phase1',
+    '21 no mutating tools'
+);
+
+ac_assert(
+    !str_contains($toolsSrc, 'cart_add_product')
+    && !str_contains($toolsSrc, 'qualification_save_for_bot')
+    && !str_contains($toolsSrc, 'booking_create_appointment')
+    && !str_contains($pipelineSrc, 'db_execute')
+    && !str_contains($runSrc, 'INSERT INTO'),
+    '22 no accidental DB mutation from Core tools/run'
 );
 
 echo "\n{$passed} passed, {$failed} failed\n";
