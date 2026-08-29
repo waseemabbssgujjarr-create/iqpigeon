@@ -1518,7 +1518,7 @@ function wa_auto_reply_compose(array $bot, int $leadId, string $userMessage, int
         wa_auto_reply_persist_inbound($leadId, $userMessage);
 
         require_once __DIR__ . '/agent-core/bootstrap.php';
-        if (agent_core_enabled($bot)) {
+        if (agent_core_enabled($bot, 'whatsapp')) {
             require_once __DIR__ . '/agent-core/agent-core.php';
             try {
                 $core = agent_core_channel_try($bot, $leadId, $userMessage, $turnId, 'whatsapp');
@@ -1715,7 +1715,7 @@ function wa_auto_reply_deliver_turn(array $turn, array $bot, string $phoneId, st
 
         require_once __DIR__ . '/agent-core/bootstrap.php';
         require_once __DIR__ . '/agent-core/media.php';
-        $agentCoreOn = agent_core_enabled($bot);
+        $agentCoreOn = agent_core_enabled($bot, 'whatsapp');
         if (($agentCoreOn || empty($GLOBALS['wa_webhook_budget']))
             && $turnId > 0
             && !wa_auto_reply_turn_is_text_only($turnId)

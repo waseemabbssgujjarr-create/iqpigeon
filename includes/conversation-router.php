@@ -28,7 +28,8 @@ function conversation_is_shop_pitch_reply(string $reply): bool
     );
 }
 
-function conversation_route_is_explicit_menu(string $message): bool
+/** Explicit menu phrasing only — no catalog browse/category delegation (avoids router↔catalog recursion). */
+function conversation_route_menu_phrase_match(string $message): bool
 {
     $trimmed = trim($message);
     if ($trimmed === '') {
@@ -41,13 +42,18 @@ function conversation_route_is_explicit_menu(string $message): bool
 
     $lower = mb_strtolower(conversation_normalize_intent_text($trimmed));
 
-    if (preg_match(
+    return (bool) preg_match(
         '/\b(show (me )?(your )?menu|send (me )?(the )?menu|see (the )?menu|food menu|'
         . 'what(?:\'?s| is)? on (the )?menu|tonight(?:\'?s)? menu|today(?:\'?s)? menu|'
         . 'what (?:do )?you have (?:today|tonight)|what you have (?:today|tonight)|'
         . 'specials? (?:today|tonight)|browse (the )?(menu|catalog))\b/u',
         $lower
-    )) {
+    );
+}
+
+function conversation_route_is_explicit_menu(string $message): bool
+{
+    if (conversation_route_menu_phrase_match($message)) {
         return true;
     }
 

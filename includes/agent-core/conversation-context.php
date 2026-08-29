@@ -23,6 +23,21 @@ function agent_core_conversation_context(array $turnCtx): array
             $history = [];
         }
     }
+    // Widget / non-WhatsApp channels may not have loaded whatsapp-auto-reply-core.
+    if ((!is_array($history) || $history === []) && $leadId > 0 && function_exists('db_fetch_all')) {
+        try {
+            $rows = db_fetch_all(
+                'SELECT role, message FROM conversations WHERE lead_id = ? ORDER BY id DESC LIMIT 10',
+                'i',
+                [$leadId]
+            );
+            if (is_array($rows) && $rows !== []) {
+                $history = array_reverse($rows);
+            }
+        } catch (Throwable $e) {
+            $history = [];
+        }
+    }
     if (!is_array($history)) {
         $history = [];
     }

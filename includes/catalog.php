@@ -192,14 +192,11 @@ function catalog_has_clear_shopping_intent(string $message): bool
         || catalog_message_is_menu_request(0, $message);
 }
 
-function catalog_message_is_browse_intent(string $message): bool
+/** Browse/catalog keyword phrasing only — no category-inquiry gate (used to break router↔catalog recursion). */
+function catalog_message_is_browse_phrase_match(string $message): bool
 {
     $lower = mb_strtolower(trim($message));
     if ($lower === '') {
-        return false;
-    }
-
-    if (catalog_message_is_category_inquiry($message)) {
         return false;
     }
 
@@ -221,21 +218,25 @@ function catalog_message_is_browse_intent(string $message): bool
     );
 }
 
-/** Bare "menu" / keyword / browse — always open the catalog, even if custom keywords omit "menu". */
-function catalog_message_is_menu_request(int $botId, string $message): bool
+function catalog_message_is_browse_intent(string $message): bool
 {
-    $trimmed = trim($message);
-    if ($trimmed === '') {
+    if (catalog_message_is_category_inquiry($message)) {
         return false;
     }
 
-    if (preg_match('/^(the\s+)?menu[\s!?.]*$/iu', $trimmed)) {
+    return catalog_message_is_browse_phrase_match($message);
+}
+
+/** Bare "menu" / keyword / browse — always open the catalog, even if custom keywords omit "menu". */
+function catalog_message_is_menu_request(int $botId, string $message): bool
+{
+    require_once __DIR__ . '/conversation-router.php';
+
+    if (conversation_route_menu_phrase_match($message)) {
         return true;
     }
 
-    require_once __DIR__ . '/conversation-router.php';
-
-    return conversation_route_is_explicit_menu($message);
+    return catalog_message_is_browse_phrase_match($message);
 }
 
 function catalog_query_is_generic(string $query): bool

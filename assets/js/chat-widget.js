@@ -610,6 +610,25 @@
 
         inputEl.addEventListener('input', updateSendState);
 
+        function parseApiJson(raw) {
+            const text = String(raw || '').replace(/^\uFEFF/, '').trim();
+            if (!text) {
+                return { ok: false, data: null, reason: 'empty' };
+            }
+            try {
+                return { ok: true, data: JSON.parse(text), reason: null };
+            } catch (e) {
+                const start = text.indexOf('{');
+                const end = text.lastIndexOf('}');
+                if (start >= 0 && end > start) {
+                    try {
+                        return { ok: true, data: JSON.parse(text.slice(start, end + 1)), reason: null };
+                    } catch (e2) { /* fall through */ }
+                }
+                return { ok: false, data: null, reason: 'invalid_json' };
+            }
+        }
+
     async function sendMessage() {
         const text = inputEl.value.trim();
         if (!text || isSending) return;
@@ -630,11 +649,17 @@
         inputEl.disabled = true;
         showTyping();
 
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutMs = 75000;
+        const timeoutId = controller
+            ? setTimeout(function () { try { controller.abort(); } catch (e) { /* ignore */ } }, timeoutMs)
+            : null;
+
         try {
             const endpoint = apiBase.replace(/\/$/, '') + '/api/chat-widget.php';
-            const res = await fetch(endpoint, {
+            const fetchOpts = {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: JSON.stringify({
                     bot_id: botId,
                     session_id: sessionId,
@@ -642,13 +667,16 @@
                     demo_mode: isDemo,
                     locale: browserLocale,
                 }),
-            });
+            };
+            if (controller) {
+                fetchOpts.signal = controller.signal;
+            }
+            const res = await fetch(endpoint, fetchOpts);
 
             const raw = await res.text();
-            let data;
-            try {
-                data = raw ? JSON.parse(raw) : {};
-            } catch {
+            if (timeoutId) clearTimeout(timeoutId);
+            const parsed = parseApiJson(raw);
+            if (!parsed.ok) {
                 removeTyping();
                 const apiHint = config.apiBase
                     ? ''
@@ -661,6 +689,7 @@
                 return;
             }
 
+            const data = parsed.data || {};
             removeTyping();
 
             if (data.success) {
@@ -668,15 +697,24 @@
                     addMessage('A team member will reply shortly.', 'bot');
                 } else if (data.reply && String(data.reply).trim()) {
                     addMessage(String(data.reply).trim(), 'bot');
+                } else {
+                    addMessage('I am here — could you say that one more time?', 'bot');
                 }
                 finishSend();
                 return;
             }
 
             addMessage(data.error || data.message || 'Sorry, something went wrong. Please try again.', 'bot');
-        } catch {
+        } catch (err) {
+            if (timeoutId) clearTimeout(timeoutId);
             removeTyping();
-            addMessage('Connection error. Please check your network and try again.', 'bot');
+            const aborted = err && (err.name === 'AbortError' || err.code === 20);
+            addMessage(
+                aborted
+                    ? 'That took too long on our side. Please try again in a moment.'
+                    : 'Connection error. Please check your network and try again.',
+                'bot'
+            );
         }
 
         finishSend();

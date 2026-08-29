@@ -12,6 +12,18 @@ const AGENT_CORE_OBSERVE_DROP_KEYS = [
 ];
 
 /**
+ * Diagnostic field names that would otherwise match DROP_KEYS by substring
+ * (e.g. "token" in has_temperature_token, "openai" in openai_call_ok).
+ *
+ * @var list<string>
+ */
+const AGENT_CORE_OBSERVE_KEEP_KEYS = [
+    'has_temperature_token',
+    'openai_call_ok',
+    'openai_call_empty',
+];
+
+/**
  * @param array<string, mixed> $ctx
  */
 function agent_core_observe_begin(array $ctx): void
@@ -44,11 +56,17 @@ function agent_core_observe_sanitize(array $detail): array
     $out = [];
     foreach ($detail as $key => $value) {
         $k = strtolower((string) $key);
+        if ($k === 'evidence') {
+            continue;
+        }
+        $keep = in_array($k, AGENT_CORE_OBSERVE_KEEP_KEYS, true);
         $drop = false;
-        foreach (AGENT_CORE_OBSERVE_DROP_KEYS as $bad) {
-            if ($k === $bad || str_contains($k, $bad)) {
-                $drop = true;
-                break;
+        if (!$keep) {
+            foreach (AGENT_CORE_OBSERVE_DROP_KEYS as $bad) {
+                if ($k === $bad || str_contains($k, $bad)) {
+                    $drop = true;
+                    break;
+                }
             }
         }
         if ($drop) {
@@ -114,7 +132,8 @@ function agent_core_map_fail_reason(?string $error): string
         'missing_plan' => 'missing_plan',
         'tool_failure' => 'tool_failure',
         'disabled' => 'disabled',
-        'not_allowlisted' => 'not_allowlisted',
+        'not_allowlisted' => 'inactive',
+        'inactive'        => 'inactive',
         'exception', 'test_forced_core_failure' => 'exception',
         '' => 'unknown',
         default => str_contains(mb_strtolower($error), 'exception')
@@ -138,7 +157,7 @@ function agent_core_fallback_reason(array $core): string
             return 'disabled';
         }
 
-        return 'not_allowlisted';
+        return 'inactive';
     }
     if ($path === 'core_error') {
         return 'exception';

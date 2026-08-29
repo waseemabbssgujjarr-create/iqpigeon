@@ -1,7 +1,7 @@
 <?php
 /**
- * Meaning-based information source router for the live WhatsApp mind path.
- * Time words (today/yesterday/current/latest) never select LIVE_WEB by themselves.
+ * Meaning-based information source router for Agent Core (WhatsApp + widget).
+ * Freshness-dependent questions route through LIVE_WEB via live_world_message_needs_fresh_evidence().
  */
 declare(strict_types=1);
 
@@ -85,8 +85,8 @@ function conversation_source_route(string $message, string $thread = ''): array
         . '|what (deals?|offers?) do you (currently )?offer'
         . ')\b/u',
         $msg
-    ) || (function_exists('live_world_is_business_question') && live_world_is_business_question($msg)
-        && !preg_match('/\b(president|prime minister|pakistan news|weather|bitcoin)\b/u', $msg));
+    ) || (function_exists('live_world_is_business_question') && live_world_is_business_question($message)
+        && !conversation_source_is_world_affairs($msg, $thread));
 
     $businessAsk = (bool) preg_match(
         '/\b(your (address|location|services?|policy|policies|phone)|what (services|products) do you offer|where are you)\b/u',
@@ -122,6 +122,11 @@ function conversation_source_route(string $message, string $thread = ''): array
     } elseif ($catalogAsk) {
         $out['primary'] = 'BUSINESS_CATALOG';
         $out['needs_catalog'] = true;
+    } elseif ($businessAsk && $worldAffairs) {
+        $out['primary'] = 'MIXED';
+        $out['needs_web'] = true;
+        $out['needs_memory'] = true;
+        $out['search_query'] = conversation_source_web_query($message, $thread);
     } elseif ($businessAsk && !$worldAffairs) {
         $out['primary'] = 'BUSINESS_KNOWLEDGE';
     } elseif ($worldAffairs) {
@@ -149,50 +154,9 @@ function conversation_source_route(string $message, string $thread = ''): array
 
 function conversation_source_is_world_affairs(string $msg, string $thread = ''): bool
 {
-    if (preg_match(
-        '/\b('
-        . 'president|prime minister|army chief|chief of army|chief of staff'
-        . '|election|breaking news|in the news|current affairs'
-        . '|exchange rate|usd to pkr|bitcoin|\bbtc\b|crypto price'
-        . '|weather|forecast|who won|final score|match result'
-        . '|openai model|latest gpt'
-        . ')\b/u',
-        $msg
-    )) {
-        if (preg_match('/\b(your|our)\b.{0,40}\b(price|menu|hours|deal|offer|burger|pizza|service)\b/u', $msg)
-            && !preg_match('/\b(president|prime minister|army chief|news|weather|bitcoin|election)\b/u', $msg)
-        ) {
-            return false;
-        }
+    require_once __DIR__ . '/live-world-info.php';
 
-        return true;
-    }
-
-    if (preg_match('/\bwho (is|\'s) the (current )?(pm|president|prime minister|army chief)\b/u', $msg)) {
-        return true;
-    }
-    if (preg_match('/\bwho runs (america|the (usa|us|united states)|pakistan)\b/u', $msg)) {
-        return true;
-    }
-    if (preg_match('/\bwhat happened (in )?(pakistan|the world|today|yesterday)\b/u', $msg)
-        || preg_match('/\b(latest|today\'?s) (pakistan )?news\b/u', $msg)
-        || preg_match('/\bwhat\'?s happening in pakistan\b/u', $msg)
-    ) {
-        return true;
-    }
-
-    $followUp = (bool) preg_match(
-        '/\b(and (the )?(army chief|president|pm|prime minister|weather|rate)|what about (him|them|there))\b/u',
-        $msg
-    );
-    if ($followUp && preg_match(
-        '/\b(pakistan|president|prime minister|pm|army|election|news|weather)\b/u',
-        $thread
-    )) {
-        return true;
-    }
-
-    return false;
+    return live_world_message_needs_fresh_evidence($msg, $thread);
 }
 
 function conversation_source_web_query(string $message, string $thread = ''): string
@@ -203,22 +167,10 @@ function conversation_source_web_query(string $message, string $thread = ''): st
     $q = (string) preg_replace('/\b(order #?\d+|my address|my phone|card number)\b/iu', '', $q);
     $q = trim((string) preg_replace('/\s+/u', ' ', $q));
 
-    if (preg_match(
-        '/\b(who is the current .{0,40}|who runs .{0,30}|current (president|prime minister|pm|army chief).{0,40}|latest .{0,40}news.{0,20}|today\'?s (weather|exchange rate|usd).{0,30}|what happened .{0,40})/iu',
-        $q,
-        $m
-    )) {
-        $q = trim($m[0]);
-    }
-
-    if (preg_match('/\b(army chief|president|pm|prime minister)\b/iu', $q)
-        && preg_match('/\b(pakistan|usa|united states|america)\b/iu', $thread)
-        && !preg_match('/\b(pakistan|usa|united states|america)\b/iu', $q)
-    ) {
-        if (preg_match('/\bpakistan\b/u', mb_strtolower($thread))) {
-            $q .= ' Pakistan';
-        } elseif (preg_match('/\b(usa|united states|america)\b/u', mb_strtolower($thread))) {
-            $q .= ' United States';
+    if (mb_strlen($q) < 48 && $thread !== '') {
+        $threadBit = trim((string) preg_replace('/\s+/u', ' ', mb_substr($thread, -120)));
+        if ($threadBit !== '') {
+            $q = trim($q . ' ' . $threadBit);
         }
     }
 

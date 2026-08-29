@@ -59,13 +59,15 @@ function agent_core_source_route(array $turnCtx, array $conv, array $intent): ar
         $out['needs_memory'] = true;
     }
 
-    $flags = 0;
-    foreach (['needs_web', 'needs_hours', 'needs_orders', 'needs_catalog', 'needs_memory'] as $key) {
+    $businessSources = 0;
+    foreach (['needs_hours', 'needs_orders', 'needs_catalog'] as $key) {
         if (!empty($out[$key])) {
-            $flags++;
+            $businessSources++;
         }
     }
-    if ($flags >= 2 && ($intent['kind'] ?? '') !== 'CORRECTION') {
+    if (!empty($out['needs_web']) && $businessSources >= 1 && ($intent['kind'] ?? '') !== 'CORRECTION') {
+        $out['primary'] = 'MIXED';
+    } elseif ($businessSources >= 2 && ($intent['kind'] ?? '') !== 'CORRECTION') {
         $out['primary'] = 'MIXED';
     }
 

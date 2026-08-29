@@ -1,7 +1,7 @@
 <?php
 /**
  * Channel adapters around Agent Core. Core does not ACK, debounce, or Graph-send.
- * WhatsApp compose, Test & Publish (bot-chat), and future widget/get_ai_response
+ * WhatsApp compose, Test & Publish (bot-chat), and website widget (get_ai_response)
  * call this. When Core is OFF or unusable, the caller keeps its legacy path.
  *
  * @return array{ok: bool, reply: string, path: string, intent?: array, plan?: array, error?: ?string}
@@ -14,7 +14,13 @@ declare(strict_types=1);
  */
 function agent_core_channel_try(array $bot, int $leadId, string $message, int $turnId = 0, string $channel = 'whatsapp'): array
 {
-    $reason = (!defined('AGENT_CORE_ENABLED') || !AGENT_CORE_ENABLED) ? 'disabled' : 'not_allowlisted';
+    if (!defined('AGENT_CORE_ENABLED') || !AGENT_CORE_ENABLED) {
+        $reason = 'disabled';
+    } elseif (function_exists('agent_core_bot_eligible') && !agent_core_bot_eligible($bot, $channel)) {
+        $reason = 'inactive';
+    } else {
+        $reason = 'disabled';
+    }
     $empty = [
         'ok'              => false,
         'reply'           => '',
@@ -22,7 +28,7 @@ function agent_core_channel_try(array $bot, int $leadId, string $message, int $t
         'error'           => null,
         'fallback_reason' => $reason,
     ];
-    if (!function_exists('agent_core_enabled') || !agent_core_enabled($bot)) {
+    if (!function_exists('agent_core_enabled') || !agent_core_enabled($bot, $channel)) {
         if (function_exists('agent_core_observe_begin')) {
             agent_core_observe_begin([
                 'bot'     => $bot,

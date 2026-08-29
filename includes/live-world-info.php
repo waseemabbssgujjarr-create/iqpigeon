@@ -32,6 +32,157 @@ function live_world_is_business_question(string $message): bool
     );
 }
 
+/**
+ * True when the message is scoped to this bot's catalog/hours/location only.
+ */
+function live_world_is_business_scoped(string $message): bool
+{
+    $msg = live_world_normalize($message);
+    if ($msg === '') {
+        return false;
+    }
+    if (live_world_is_business_question($msg)) {
+        return true;
+    }
+
+    return (bool) preg_match(
+        '/\b(your|our)\b.{0,48}\b(menu|catalog|prices?|hours?|address|location|services?|products?|deals?|offers?|packages?)\b/u',
+        $msg
+    );
+}
+
+/**
+ * External current-world topic (news, weather, politics, markets, sports) — not the bot's own catalog.
+ */
+function live_world_has_external_current_topic(string $message): bool
+{
+    $msg = live_world_normalize($message);
+
+    return (bool) preg_match(
+        '/\b('
+        . 'news|headline|election|parliament|senate|government|minister|president|prime minister'
+        . '|governor|mayor|ceo|chairman|office holder|cabinet'
+        . '|score|fixture|match|game|tournament|league|standings|sports?'
+        . '|weather|forecast|temperature|rain|snow'
+        . '|exchange rate|interest rate|inflation|stock|crypto|bitcoin|fuel|petrol|gasoline|diesel'
+        . '|schedule|timetable|departure|arrival|flight status|train status|results today'
+        . ')\b/u',
+        $msg
+    );
+}
+
+/**
+ * Explicit freshness lexicon — current/latest/recent/today/now and similar.
+ */
+function live_world_has_freshness_lexicon(string $message): bool
+{
+    $msg = live_world_normalize($message);
+    if ($msg === '') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/\b('
+        . 'current(?:ly)?|latest|recent(?:ly)?|today|tonight|right now|as of now'
+        . '|this (?:week|month|year|morning|afternoon|evening)'
+        . '|(?:^|\s)now(?:\s|$|[?.!])|just now|just happened|up to date|up-to-date'
+        . '|what(?:\'?s| is| are) happening|what happened(?: recently| today| yesterday| last| this week)?'
+        . '|who is (?:the )?currently|who(?:\'?s| is) (?:the )?current(?:ly)?'
+        . '|breaking news|in the news|news today|headlines|current affairs'
+        . '|live score|final score|match result|who won|fixture(?:s)?|standings|recent match(?:es)?'
+        . '|weather|forecast|temperature'
+        . '|exchange rate|current price|price today|rate today|stock price|market price'
+        . '|status update|schedule today|results today|opening today'
+        . ')\b/u',
+        $msg
+    );
+}
+
+/**
+ * Domain-agnostic question shapes that require verified fresh information.
+ */
+function live_world_has_current_world_question_shape(string $message): bool
+{
+    $msg = live_world_normalize($message);
+    if ($msg === '') {
+        return false;
+    }
+
+    if (preg_match(
+        '/\b(who (?:is|\'s|are|was)|who runs|who holds|who leads|who won|what happened|what(?:\'?s| is) the (?:score|result|status|weather))\b/u',
+        $msg
+    )) {
+        if (preg_match('/\b(your (company|business|restaurant|shop|team)|what do you offer|where are you located?)\b/u', $msg)
+            && !live_world_has_freshness_lexicon($msg)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    if (live_world_has_external_current_topic($msg)
+        && preg_match('/\b(what|who|when|where|how|tell me|update|any|is there|are there)\b/u', $msg)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Short follow-up to an earlier live-world thread.
+ */
+function live_world_is_live_thread_follow_up(string $message, string $thread): bool
+{
+    $msg = live_world_normalize($message);
+    $threadNorm = live_world_normalize($thread);
+    if ($msg === '' || $threadNorm === '') {
+        return false;
+    }
+    if (!preg_match('/\b(what about|how about|and (?:the|that|him|her|them|there)|tell me more|same (?:for|about))\b/u', $msg)) {
+        return false;
+    }
+
+    return live_world_has_freshness_lexicon($threadNorm)
+        || live_world_has_current_world_question_shape($threadNorm);
+}
+
+/**
+ * Global freshness gate — single source of truth for LIVE_WORLD routing.
+ * Pattern-based (freshness lexicon + structural shapes), not topic-specific handlers.
+ */
+function live_world_message_needs_fresh_evidence(string $message, string $thread = ''): bool
+{
+    $msg = live_world_normalize($message);
+    if ($msg === '') {
+        return false;
+    }
+
+    if (preg_match('/\b(who are you|who(?:\'?s| is) this|are you (a )?(bot|ai|human|real person))\b/u', $msg)) {
+        return false;
+    }
+
+    if (live_world_is_business_scoped($msg) && !live_world_has_external_current_topic($msg)) {
+        return false;
+    }
+
+    if (live_world_has_freshness_lexicon($msg)) {
+        return true;
+    }
+
+    if (live_world_has_current_world_question_shape($msg)) {
+        return true;
+    }
+
+    $threadNorm = live_world_normalize($thread);
+    if ($threadNorm !== '' && live_world_is_live_thread_follow_up($msg, $threadNorm)) {
+        return true;
+    }
+
+    return false;
+}
+
 function live_world_requires_live(string $message, string $thread = ''): bool
 {
     return live_world_should_search($message, $thread);
@@ -197,6 +348,50 @@ function live_world_inspect_web_search(array $data): array
         'has_web_search_call'    => $has,
         'web_search_call_status' => $status,
         'web_search_executed'    => $executed,
+    ];
+}
+
+function live_world_evidence_has_temperature_token(string $text): bool
+{
+    $t = live_world_normalize($text);
+    if ($t === '') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/('
+        . '°\s*[cf]'
+        . '|degrees?\s*[cf]\b'
+        . '|\bcelsius\b|\bfahrenheit\b'
+        . '|\btemp(?:erature)?s?\b'
+        . '|\b\d+(?:\.\d+)?\s*°?\s*[cf]\b'
+        . ')/u',
+        $t
+    );
+}
+
+/**
+ * Sanitized content flags from evidence. Never returns the evidence string.
+ *
+ * @return array{
+ *   evidence_chars: int,
+ *   looks_like_refusal: bool,
+ *   has_lahore: bool,
+ *   has_weather: bool,
+ *   has_temperature_token: bool
+ * }
+ */
+function live_world_evidence_content_flags(string $evidence): array
+{
+    $evidence = trim($evidence);
+    $norm = live_world_normalize($evidence);
+
+    return [
+        'evidence_chars'        => mb_strlen($evidence),
+        'looks_like_refusal'    => $evidence !== '' && live_world_evidence_looks_like_refusal($evidence),
+        'has_lahore'            => $norm !== '' && str_contains($norm, 'lahore'),
+        'has_weather'           => $norm !== '' && str_contains($norm, 'weather'),
+        'has_temperature_token' => live_world_evidence_has_temperature_token($evidence),
     ];
 }
 

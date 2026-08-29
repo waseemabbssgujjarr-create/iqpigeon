@@ -42,6 +42,24 @@ function pipeline_allows_conversational_shortcuts(bool $customerTurn, string $me
     return (bool) preg_match('/\b(thank you|thanks|shukriya)\b/u', $lower);
 }
 
+/**
+ * @param array<string, mixed> $options
+ */
+function pipeline_request_channel(array $options = []): string
+{
+    return strtolower(trim((string) ($options['channel'] ?? '')));
+}
+
+/**
+ * Website widget uses Agent Core for business FAQ — skip legacy pre-AI offer/location handlers.
+ *
+ * @param array<string, mixed> $options
+ */
+function pipeline_widget_defer_business_faq_to_core(array $options = []): bool
+{
+    return pipeline_request_channel($options) === 'widget';
+}
+
 function pipeline_finalize_text(array $bot, int $leadId, string $reply, string $userMessage, bool $customerTurn): string
 {
     if ($customerTurn && human_agent_pure_mode_enabled()) {
@@ -172,6 +190,7 @@ function pipeline_shop_menu_result(
  *
  * @param array<string, mixed> $bot
  * @param array<string, mixed> $lead
+ * @param array<string, mixed> $options
  * @return array<string, mixed>|null
  */
 function pipeline_try_direct_intents(
@@ -180,8 +199,10 @@ function pipeline_try_direct_intents(
     string $userMessage,
     array $bot,
     array $lead,
-    bool $customerTurn
+    bool $customerTurn,
+    array $options = []
 ): ?array {
+    $widgetDeferFaq = pipeline_widget_defer_business_faq_to_core($options);
     require_once __DIR__ . '/conversation-intent.php';
     require_once __DIR__ . '/bot-knowledge.php';
     require_once __DIR__ . '/restaurant-menu-card.php';
@@ -237,30 +258,43 @@ function pipeline_try_direct_intents(
             || cart_user_wants_checkout($userMessage);
 
         if (!$keepGoing) {
-            if (conversation_is_meta_activity_question($userMessage)
-                && preg_match('/\b(bot|robot|ai|human|person|real)\b/iu', $normalized)) {
-                $reply = "I'm {$rep} from {$brand} — right here with you.";
-            } elseif (conversation_is_location_question($userMessage)
-                || preg_match('/\b(where are you|anyone there)\b/iu', $normalized)) {
-                $reply = "I'm here on WhatsApp for {$brand} — with you right now.";
-            } elseif (conversation_is_bot_frustration($userMessage)) {
-                $reply = "Sorry about that — I missed your point. What did you need?";
-            } else {
-                $reply = "Just here on WhatsApp — what's going on?";
+            $deferLocationToCore = $widgetDeferFaq
+                && (conversation_is_location_question($userMessage)
+                    || preg_match('/\b(where are you|anyone there)\b/iu', $normalized));
+            if ($deferLocationToCore) {
+                error_log('widget_pre_ai: defer_location_to_core lead=' . $leadId);
             }
 
-            return pipeline_store_and_return(
-                $bot,
-                $leadId,
-                $reply,
-                $userMessage,
-                $customerTurn,
-                ['signals' => ['COMMON']]
-            );
+            if (!$deferLocationToCore) {
+                if (conversation_is_meta_activity_question($userMessage)
+                    && preg_match('/\b(bot|robot|ai|human|person|real)\b/iu', $normalized)) {
+                    $reply = "I'm {$rep} from {$brand} — right here with you.";
+                } elseif (conversation_is_location_question($userMessage)
+                    || preg_match('/\b(where are you|anyone there)\b/iu', $normalized)) {
+                    $reply = "I'm here on WhatsApp for {$brand} — with you right now.";
+                } elseif (conversation_is_bot_frustration($userMessage)) {
+                    $reply = "Sorry about that — I missed your point. What did you need?";
+                } else {
+                    $reply = "Just here on WhatsApp — what's going on?";
+                }
+
+                return pipeline_store_and_return(
+                    $bot,
+                    $leadId,
+                    $reply,
+                    $userMessage,
+                    $customerTurn,
+                    ['signals' => ['COMMON']]
+                );
+            }
         }
     }
 
     if (knowledge_message_is_offer_question($userMessage)) {
+        if ($widgetDeferFaq) {
+            error_log('widget_pre_ai: defer_offer_to_core lead=' . $leadId);
+            return null;
+        }
         if ($botId > 0 && catalog_bot_has_products($botId) && catalog_bot_is_restaurant($botId)
             && catalog_message_is_menu_request($botId, $userMessage)
         ) {
@@ -321,7 +355,7 @@ function pipeline_run_pre_ai(
         }
     }
 
-    $direct = pipeline_try_direct_intents($leadId, $botId, $userMessage, $bot, $lead, $customerTurn);
+    $direct = pipeline_try_direct_intents($leadId, $botId, $userMessage, $bot, $lead, $customerTurn, $options);
     if ($direct !== null) {
         return $direct;
     }

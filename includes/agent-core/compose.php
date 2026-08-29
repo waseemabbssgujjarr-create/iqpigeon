@@ -33,6 +33,131 @@ function agent_core_canonical_offer_draft(array $bot, string $userMessage): stri
 }
 
 /**
+ * Canonical business location from owner profile / training — no OpenAI.
+ *
+ * @param array<string, mixed> $bot
+ */
+function agent_core_canonical_location_draft(array $bot, string $userMessage): string
+{
+    $userMessage = trim($userMessage);
+    if ($userMessage === '' || $userMessage === '[Customer sent a message]') {
+        return '';
+    }
+    require_once dirname(__DIR__) . '/conversation-intent.php';
+    if (!function_exists('conversation_is_location_question') || !conversation_is_location_question($userMessage)) {
+        return '';
+    }
+    require_once dirname(__DIR__) . '/bot-knowledge.php';
+    if (!function_exists('bot_owner_profile_fields')) {
+        return '';
+    }
+
+    $profile = bot_owner_profile_fields($bot);
+    $address = trim((string) ($profile['address'] ?? ''));
+    if ($address !== '') {
+        return "We're at {$address}.";
+    }
+
+    $corpus = trim((string) ($bot['bot_knowledge'] ?? '') . "\n" . (string) ($bot['business_model'] ?? ''));
+    if ($corpus !== '' && preg_match('/\b(?:address|located|location|based in|office)\s*[:\-]\s*([^\n.]{4,120})/iu', $corpus, $m)) {
+        $line = trim((string) ($m[1] ?? ''));
+        if ($line !== '') {
+            return "We're at {$line}.";
+        }
+    }
+
+    $city = function_exists('bot_extract_city') ? bot_extract_city($corpus) : '';
+    if ($city !== '') {
+        return "We're based in {$city}.";
+    }
+
+    return '';
+}
+
+/**
+ * LIVE_WORLD fast path — one live-answer call from verified web evidence, no full mind_generate.
+ *
+ * @param array<string, mixed> $pack
+ * @param array<string, mixed> $plan
+ * @param list<array<string, mixed>> $toolResults
+ * @param array<string, mixed> $turnCtx
+ * @param array<string, mixed> $conv
+ * @param array<string, mixed> $bot
+ */
+function agent_core_compose_live_world_draft(
+    array $pack,
+    array $plan,
+    array $toolResults,
+    array $turnCtx,
+    array $conv,
+    string $userMessage,
+    array $bot,
+    int $leadId
+): string {
+    if ((string) ($plan['outcome'] ?? '') !== 'LIVE_WORLD') {
+        return '';
+    }
+
+    $route = is_array($plan['route'] ?? null) ? $plan['route'] : [];
+    $needsWeb = !empty($route['needs_web']);
+    if (!$needsWeb) {
+        require_once dirname(__DIR__) . '/live-world-info.php';
+        $needsWeb = live_world_message_needs_fresh_evidence($userMessage, '');
+    }
+    if (!$needsWeb) {
+        return '';
+    }
+
+    $live = null;
+    foreach ($toolResults as $row) {
+        if ((string) ($row['name'] ?? '') === 'live_web.search') {
+            $live = is_array($row['data'] ?? null) ? $row['data'] : null;
+            break;
+        }
+    }
+
+    require_once dirname(__DIR__) . '/conversation-mind.php';
+    $search = is_array($live) ? $live : ['needed' => true, 'ok' => false, 'evidence' => ''];
+    if (empty($search['needed'])) {
+        $search['needed'] = true;
+    }
+
+    $usable = function_exists('live_world_search_is_usable') && live_world_search_is_usable($search);
+    if (!$usable) {
+        agent_core_compose_widget_log('live_world_unverified', $turnCtx);
+
+        return function_exists('conversation_mind_unverified_live_reply')
+            ? conversation_mind_unverified_live_reply($bot)
+            : '';
+    }
+
+    $mindCtx = agent_core_mind_ctx_from_plan($pack, $plan, $toolResults, $turnCtx, $conv);
+    $answer = trim(conversation_mind_live_answer($bot, $userMessage, $mindCtx, $search));
+    if ($answer !== '') {
+        agent_core_compose_widget_log('live_world_answer', $turnCtx);
+    }
+
+    return $answer;
+}
+
+/**
+ * Temporary widget compose stage markers — search error_log for widget_core_compose:
+ *
+ * @param array<string, mixed> $turnCtx
+ */
+function agent_core_compose_widget_log(string $stage, array $turnCtx): void
+{
+    if (strtolower(trim((string) ($turnCtx['channel'] ?? ''))) !== 'widget') {
+        return;
+    }
+    error_log(
+        'widget_core_compose: stage=' . $stage
+        . ' bot=' . (int) ($turnCtx['bot_id'] ?? ($turnCtx['bot']['id'] ?? 0))
+        . ' lead=' . (int) ($turnCtx['lead_id'] ?? 0)
+    );
+}
+
+/**
  * @param array<string, mixed> $pack
  * @param array<string, mixed> $plan
  * @param list<array<string, mixed>> $toolResults
@@ -54,30 +179,48 @@ function agent_core_compose(array $pack, array $plan, array $toolResults, array 
 
     $canonical = agent_core_canonical_offer_draft($bot, $userMessage);
     if ($canonical !== '') {
+        agent_core_compose_widget_log('offer_canonical', $turnCtx);
         return mb_substr($canonical, 0, 900);
+    }
+
+    $locationDraft = agent_core_canonical_location_draft($bot, $userMessage);
+    if ($locationDraft !== '') {
+        agent_core_compose_widget_log('location_canonical', $turnCtx);
+        return mb_substr($locationDraft, 0, 900);
+    }
+
+    $liveDraft = agent_core_compose_live_world_draft($pack, $plan, $toolResults, $turnCtx, $conv, $userMessage, $bot, $leadId);
+    if ($liveDraft !== '') {
+        return mb_substr($liveDraft, 0, 900);
     }
 
     // Budget contract: wa_skip_openai blocks the old human-layer OpenAI helpers,
     // not conversation_mind_generate (already the live WhatsApp brain after ACK + 7s quiet).
     if (!agent_core_may_call_mind_generate()) {
+        agent_core_compose_widget_log('mind_generate_blocked', $turnCtx);
         return '';
     }
 
     require_once dirname(__DIR__) . '/conversation-mind.php';
     if (!function_exists('conversation_mind_generate')) {
+        agent_core_compose_widget_log('mind_generate_missing', $turnCtx);
         return '';
     }
 
+    agent_core_compose_widget_log('mind_generate_start', $turnCtx);
     $mindCtx = agent_core_mind_ctx_from_plan($pack, $plan, $toolResults, $turnCtx, $conv, $retryHint);
     try {
         $draft = trim(conversation_mind_generate($bot, $leadId, $userMessage, $mindCtx));
         if ($draft === '') {
+            agent_core_compose_widget_log('mind_generate_empty', $turnCtx);
             return '';
         }
 
+        agent_core_compose_widget_log('mind_generate_ok', $turnCtx);
         return mb_substr($draft, 0, 900);
     } catch (Throwable $e) {
         error_log('agent_core_compose: ' . $e->getMessage());
+        agent_core_compose_widget_log('mind_generate_error', $turnCtx);
 
         return '';
     }

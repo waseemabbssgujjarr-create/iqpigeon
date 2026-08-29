@@ -817,6 +817,7 @@ function conversation_message_is_on_topic_for_conversion(string $message, string
         || whatsapp_shop_customer_wants_visual_card($text)
         || catalog_customer_says_media_missing($text)
         || (function_exists('catalog_customer_wants_other_menu') && catalog_customer_wants_other_menu($text))
+        || conversation_wants_commercial_context($text)
     ) {
         return true;
     }

@@ -100,6 +100,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['success' => false, 'error' => 'Method not allowed'], 405);
 }
 
+// Widget already shows a typing indicator — do not block the HTTP response with
+// WhatsApp-style human_agent_pause (that caused client timeouts / "Connection error").
+@ini_set('display_errors', '0');
+@ini_set('html_errors', '0');
+if (function_exists('set_time_limit')) {
+    @set_time_limit(90);
+}
+if (ob_get_level() === 0) {
+    ob_start();
+}
+
+register_shutdown_function(static function (): void {
+    if (headers_sent()) {
+        return;
+    }
+    $err = error_get_last();
+    if ($err === null || !in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    error_log(
+        'chat-widget fatal: ' . ($err['message'] ?? '')
+        . ' in ' . ($err['file'] ?? '') . ':' . (int) ($err['line'] ?? 0)
+    );
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    echo json_encode([
+        'success' => false,
+        'error'   => 'Chat service hit an error. Please try again shortly.',
+    ], JSON_UNESCAPED_UNICODE);
+});
+
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/demo-training.php';
 require_once __DIR__ . '/../includes/bot-knowledge.php';
@@ -189,6 +224,7 @@ try {
     $result = get_ai_response($leadId, $botId, $message, [
         'locale'  => trim($input['locale'] ?? ''),
         'country' => strtoupper(trim($input['country'] ?? '')),
+        'channel' => 'widget',
     ]);
 } catch (Throwable $e) {
     error_log('chat-widget error: ' . $e->getMessage());
@@ -209,14 +245,20 @@ if (empty($result['success'])) {
     ], 500);
 }
 
-require_once __DIR__ . '/../includes/reply-timing.php';
-human_agent_pause((string) ($result['reply'] ?? ''), $message);
+$reply = trim((string) ($result['reply'] ?? ''));
+if ($reply === '' && empty($result['paused'])) {
+    json_response([
+        'success' => false,
+        'error'   => 'AI returned an empty reply. Please try again.',
+    ], 500);
+}
 
 json_response([
     'success'    => true,
-    'reply'      => $result['reply'] ?? '',
+    'reply'      => $reply,
     'signals'    => $result['signals'] ?? [],
     'paused'     => !empty($result['paused']),
+    'path'       => (string) ($result['path'] ?? ''),
     'lead_id'    => $leadId,
     'session_id' => $sessionId,
 ]);

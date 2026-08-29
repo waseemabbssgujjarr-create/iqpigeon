@@ -109,18 +109,18 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
     if (function_exists('agent_core_source_route')) {
         $source = agent_core_source_route($turnCtx, $conv, []);
     }
-    $needsWeb = !empty($source['needs_web']) || agent_core_looks_like_live_world($msg);
+    $sourcePrimary = (string) ($source['primary'] ?? '');
+    $needsWeb = !empty($source['needs_web']) || agent_core_looks_like_live_world($text);
     $shopAsk = (bool) preg_match('/\b(menu|catalog|catalogue|add #\d|checkout|my cart)\b/u', $msg)
         || (bool) preg_match('/\b(what do you (sell|have)|show me (the )?(menu|items))\b/u', $msg);
     $productAsk = (bool) preg_match('/\b(do you have|got any|is there)\b/u', $msg)
         && !preg_match('/\b(the black one|the white one|that one|this one)\b/u', $msg);
-    $mixed = $needsWeb && (
+    $mixed = ($sourcePrimary === 'MIXED') || ($needsWeb && (
         $shopAsk
         || $productAsk
         || !empty($source['needs_hours'])
         || !empty($source['needs_catalog'])
-        || (bool) preg_match('/\b(hours?|open|pasta|pizza|burger)\b/u', $msg)
-    );
+    ));
 
     return [
         'media'            => $saysPhoto || $hasDocument || $hasImage,
@@ -130,7 +130,7 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
         'image_described'  => $imageDescribed,
         'correction'       => (bool) preg_match('/\b(why (didn\'?t|did not|don\'?t) you (answer|reply|respond)|you didn\'?t (answer|understand|listen)|that\'?s not what i asked)\b/u', $msg),
         'chase_up'         => (bool) preg_match('/\b(why (don\'?t|didn\'?t|won\'?t) you (reply|respond)|are you there|please reply)\b/u', $msg),
-        'live_world'       => $needsWeb && !agent_core_looks_like_business_catalog($msg) && !$mixed,
+        'live_world'       => $needsWeb && !$mixed,
         'mixed'            => $mixed,
         'needs_hours'      => !empty($source['needs_hours']),
         'booking'          => (bool) preg_match(
@@ -386,15 +386,9 @@ function agent_core_map_mind_intent(string $mind): string
 
 function agent_core_looks_like_live_world(string $msg): bool
 {
-    return (bool) preg_match(
-        '/\b('
-        . 'petrol|gasoline|diesel|fuel price'
-        . '|president|prime minister|army chief'
-        . '|weather|forecast|bitcoin|exchange rate'
-        . '|who (is|\'s) the current'
-        . ')\b/u',
-        $msg
-    );
+    require_once dirname(__DIR__) . '/live-world-info.php';
+
+    return live_world_message_needs_fresh_evidence($msg, '');
 }
 
 function agent_core_looks_like_business_catalog(string $msg): bool

@@ -62,7 +62,7 @@ try {
     }
 
     require_once __DIR__ . '/../includes/agent-core/bootstrap.php';
-    if (agent_core_enabled($bot)) {
+    if (agent_core_enabled($bot, 'bot-chat')) {
         require_once __DIR__ . '/../includes/agent-core/agent-core.php';
         $core = agent_core_channel_try($bot, 0, $message, 0, 'bot-chat');
         if (agent_core_result_usable($core)) {

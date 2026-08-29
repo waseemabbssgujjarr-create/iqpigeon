@@ -224,6 +224,15 @@ function agent_core_pipeline(array $ctx): array
     }
     $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
     if (empty($check['ok'])) {
+        if (agent_core_intent_is_live_world($intent)) {
+            agent_core_observe('CORE_VALIDATE', [
+                'ok'         => false,
+                'validation' => 'failed',
+                'reason'     => preg_replace('/[^a-z0-9_\-]/i', '', (string) ($check['reason'] ?? '')) ?: 'failed',
+            ]);
+
+            return $fail('validation_failed', false, $intent, $plan, $toolResults);
+        }
         $hint = '';
         if (function_exists('conversation_validation_retry_hint')) {
             $hint = conversation_validation_retry_hint((string) ($check['reason'] ?? ''), (string) ($turn['text'] ?? ''));

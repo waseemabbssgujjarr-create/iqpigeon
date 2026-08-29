@@ -10,7 +10,7 @@ declare(strict_types=1);
  */
 function agent_core_media_should_enrich(array $bot): bool
 {
-    return function_exists('agent_core_enabled') && agent_core_enabled($bot);
+    return function_exists('agent_core_enabled') && agent_core_enabled($bot, 'whatsapp');
 }
 
 function agent_core_media_enrich(int $turnId, string $downloadToken): void

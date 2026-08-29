@@ -234,6 +234,82 @@ function get_ai_response(int $leadId, int $botId, string $userMessage, array $op
 
     }
 
+    // Same Core path as WhatsApp / Test & Publish (LIVE_WORLD + live-answer).
+    // Skip when ai_only (validation/recovery retries need legacy openai + system_hint).
+    if (!$aiOnly) {
+        try {
+            require_once __DIR__ . '/../includes/agent-core/bootstrap.php';
+            $coreChannel = trim((string) ($options['channel'] ?? ''));
+            if ($coreChannel === '') {
+                $platform = strtolower(trim((string) ($lead['platform'] ?? '')));
+                $coreChannel = $platform !== '' ? $platform : 'widget';
+            }
+            if (function_exists('agent_core_enabled') && agent_core_enabled($bot, $coreChannel)) {
+                require_once __DIR__ . '/../includes/agent-core/agent-core.php';
+                $core = agent_core_channel_try(
+                    $bot,
+                    $leadId,
+                    $userMessage,
+                    (int) ($options['turn_id'] ?? 0),
+                    $coreChannel
+                );
+                if (agent_core_result_usable($core)) {
+                    $coreReply = trim((string) $core['reply']);
+                    if (!$skipAssistantInsert && $coreReply !== '') {
+                        db_insert(
+                            'INSERT INTO conversations (lead_id, role, message) VALUES (?, \'assistant\', ?)',
+                            'is',
+                            [$leadId, $coreReply]
+                        );
+                    }
+
+                    return [
+                        'success'         => true,
+                        'reply'           => $coreReply,
+                        'signals'         => ['AGENT_CORE'],
+                        'path'            => 'agent_core',
+                        'user_message_id' => $userConversationId,
+                    ];
+                }
+                if ($coreChannel === 'widget') {
+                    $fallbackReply = trim((string) ($core['reply'] ?? ''));
+                    if ($fallbackReply === '') {
+                        require_once __DIR__ . '/../includes/conversation-mind.php';
+                        if (function_exists('conversation_mind_unverified_live_reply')) {
+                            $fallbackReply = conversation_mind_unverified_live_reply($bot);
+                        }
+                    }
+                    if ($fallbackReply !== '') {
+                        if (!$skipAssistantInsert) {
+                            db_insert(
+                                'INSERT INTO conversations (lead_id, role, message) VALUES (?, \'assistant\', ?)',
+                                'is',
+                                [$leadId, $fallbackReply]
+                            );
+                        }
+
+                        return [
+                            'success'         => true,
+                            'reply'           => $fallbackReply,
+                            'signals'         => ['AGENT_CORE_FALLBACK'],
+                            'path'            => 'agent_core_fallback',
+                            'user_message_id' => $userConversationId,
+                        ];
+                    }
+
+                    return [
+                        'success'         => false,
+                        'error'           => 'Could not process your message. Please try again.',
+                        'path'            => 'agent_core_failed',
+                        'user_message_id' => $userConversationId,
+                    ];
+                }
+            }
+        } catch (Throwable $coreErr) {
+            error_log('get_ai_response agent_core: ' . $coreErr->getMessage());
+        }
+    }
+
 
 
     $history = db_fetch_all(
