@@ -63,16 +63,30 @@ function agent_core_pipeline(array $ctx): array
         array $plan = [],
         array $toolResults = []
     ): array {
+        $mapped = agent_core_map_fail_reason($error);
+        $bits = agent_core_observe_intent_bits($intent);
+        agent_core_observe('CORE_FALLBACK', array_merge($bits, [
+            'ok'              => false,
+            'fallback_reason' => $mapped,
+            'plan_type'       => (string) ($plan['answer_kind'] ?? ''),
+            'generation'      => 'failed',
+            'validation'      => $mapped === 'validation_failed' ? 'failed' : null,
+        ]));
+        if (is_array($GLOBALS['agent_core_observe'] ?? null)) {
+            $GLOBALS['agent_core_observe']['fallback'] = true;
+        }
+
         return [
-            'ok'           => false,
-            'reply'        => '',
-            'path'         => 'agent_core',
-            'intent'       => $intent,
-            'plan'         => $plan,
-            'tool_results' => $toolResults,
-            'retryable'    => $retryable,
-            'error'        => $error,
-            'stage'        => 'FAIL',
+            'ok'              => false,
+            'reply'           => '',
+            'path'            => 'agent_core',
+            'intent'          => $intent,
+            'plan'            => $plan,
+            'tool_results'    => $toolResults,
+            'retryable'       => $retryable,
+            'error'           => $error,
+            'stage'           => 'FAIL',
+            'fallback_reason' => $mapped,
         ];
     };
 
@@ -80,12 +94,28 @@ function agent_core_pipeline(array $ctx): array
         throw new RuntimeException('test_forced_core_failure');
     }
 
+    $forced = trim((string) ($GLOBALS['agent_core_test_fail_reason'] ?? ''));
+
     $turn = agent_core_stage_input($ctx);
     $turn = agent_core_stage_understand($turn);
     $conv = agent_core_stage_context($turn);
+    agent_core_observe('CORE_CONTEXT', [
+        'ok'     => is_array($conv),
+        'status' => is_array($conv) ? 'ok' : 'missing_context',
+    ]);
+    if ($forced === 'missing_context' || !is_array($conv)) {
+        return $fail('missing_context', false);
+    }
+
     $conv = agent_core_stage_memory($turn, $conv);
     $pack = agent_core_stage_knowledge($turn);
     $intent = agent_core_stage_intent($turn, $conv);
+    $intentBits = agent_core_observe_intent_bits($intent);
+    agent_core_observe('CORE_INTENT', array_merge($intentBits, ['ok' => true]));
+    if (agent_core_intent_is_live_world($intent)) {
+        agent_core_observe('LIVE_WORLD_DETECTED', array_merge($intentBits, ['ok' => true]));
+    }
+
     $source = agent_core_stage_sources($turn, $conv, $intent);
     if ((string) ($source['primary'] ?? '') === 'MIXED' && ($intent['kind'] ?? '') !== 'CORRECTION') {
         $intent['kind'] = 'MIXED';
@@ -103,11 +133,79 @@ function agent_core_pipeline(array $ctx): array
             $intent['tools'] = $tools;
         }
     }
+    $sourcePrimary = (string) ($source['primary'] ?? '');
+    agent_core_observe('CORE_SOURCE', array_merge(agent_core_observe_intent_bits($intent), [
+        'ok'           => $sourcePrimary !== '',
+        'source_route' => $sourcePrimary,
+        'needs_web'    => !empty($source['needs_web']),
+    ]));
+    if ($forced === 'missing_source' || $sourcePrimary === '') {
+        return $fail('missing_source', false, $intent);
+    }
+
     $plan = agent_core_stage_plan($turn, $conv, $intent, $source, $pack);
-    $toolResults = agent_core_stage_tools($plan, $turn, $conv);
+    $selected = [];
+    foreach (is_array($plan['tool_calls'] ?? null) ? $plan['tool_calls'] : [] as $call) {
+        $selected[] = (string) ($call['name'] ?? '');
+    }
+    $planType = (string) ($plan['answer_kind'] ?? '');
+    agent_core_observe('CORE_PLAN', array_merge(agent_core_observe_intent_bits($intent), [
+        'ok'             => $planType !== '',
+        'plan_type'      => $planType,
+        'source_route'   => $sourcePrimary,
+        'selected_tools' => $selected,
+    ]));
+    if (agent_core_intent_is_live_world($intent) && in_array('live_web.search', $selected, true)) {
+        agent_core_observe('LIVE_WORLD_TOOL_SELECTED', [
+            'ok'             => true,
+            'selected_tools' => $selected,
+            'source_route'   => $sourcePrimary,
+        ]);
+    }
+    if ($forced === 'missing_plan' || $planType === '') {
+        return $fail('missing_plan', false, $intent, is_array($plan) ? $plan : []);
+    }
+
+    $toolResults = agent_core_stage_tools($plan, $turn, $conv, $intent);
+    $toolStatuses = [];
+    foreach ($toolResults as $row) {
+        $toolStatuses[] = [
+            'name'   => (string) ($row['name'] ?? ''),
+            'ok'     => !empty($row['ok']),
+            'failed' => agent_core_tool_row_failed($row),
+        ];
+    }
+    agent_core_observe('CORE_TOOLS', array_merge(agent_core_observe_intent_bits($intent), [
+        'ok'             => !agent_core_tools_hard_failed($toolResults),
+        'selected_tools' => $selected,
+        'tool_status'    => $toolStatuses,
+    ]));
+    if (agent_core_intent_is_live_world($intent)) {
+        $present = agent_core_live_evidence_present($toolResults);
+        agent_core_observe('LIVE_WORLD_EVIDENCE_PRESENT', [
+            'ok'               => $present,
+            'evidence_present' => $present,
+        ]);
+    }
+    if ($forced === 'tool_failure') {
+        return $fail('tool_failure', false, $intent, $plan, $toolResults);
+    }
+
+    if (agent_core_intent_is_live_world($intent)) {
+        agent_core_observe('LIVE_WORLD_GENERATE', [
+            'ok'               => true,
+            'evidence_present' => agent_core_live_evidence_present($toolResults),
+        ]);
+    }
     $draft = trim(agent_core_stage_generate($pack, $plan, $toolResults, $turn, $conv));
+    agent_core_observe('CORE_GENERATE', array_merge(agent_core_observe_intent_bits($intent), [
+        'ok'         => $draft !== '',
+        'generation' => $draft !== '' ? 'ok' : 'empty',
+    ]));
     if ($draft === '') {
-        return $fail('empty_compose', false, $intent, $plan, $toolResults);
+        $err = agent_core_tools_hard_failed($toolResults) ? 'tool_failure' : 'empty_compose';
+
+        return $fail($err, false, $intent, $plan, $toolResults);
     }
     $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
     if (empty($check['ok'])) {
@@ -116,11 +214,24 @@ function agent_core_pipeline(array $ctx): array
             $hint = conversation_validation_retry_hint((string) ($check['reason'] ?? ''), (string) ($turn['text'] ?? ''));
         }
         $draft = trim(agent_core_stage_generate($pack, $plan, $toolResults, $turn, $conv, $hint));
+        agent_core_observe('CORE_GENERATE', array_merge(agent_core_observe_intent_bits($intent), [
+            'ok'         => $draft !== '',
+            'generation' => $draft !== '' ? 'retry' : 'empty',
+            'retry'      => true,
+        ]));
         if ($draft === '') {
-            return $fail('empty_compose', false, $intent, $plan, $toolResults);
+            $err = agent_core_tools_hard_failed($toolResults) ? 'tool_failure' : 'empty_compose';
+
+            return $fail($err, false, $intent, $plan, $toolResults);
         }
         $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
         if (empty($check['ok'])) {
+            agent_core_observe('CORE_VALIDATE', [
+                'ok'         => false,
+                'validation' => 'failed',
+                'reason'     => preg_replace('/[^a-z0-9_\-]/i', '', (string) ($check['reason'] ?? '')) ?: 'failed',
+            ]);
+
             return $fail('validation_failed', false, $intent, $plan, $toolResults);
         }
     }
@@ -129,20 +240,26 @@ function agent_core_pipeline(array $ctx): array
         return $fail('empty_humanize', false, $intent, $plan, $toolResults);
     }
     $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
+    agent_core_observe('CORE_VALIDATE', [
+        'ok'         => !empty($check['ok']),
+        'validation' => !empty($check['ok']) ? 'ok' : 'failed',
+        'reason'     => preg_replace('/[^a-z0-9_\-]/i', '', (string) ($check['reason'] ?? '')) ?: (!empty($check['ok']) ? 'ok' : 'failed'),
+    ]);
     if (empty($check['ok'])) {
         return $fail('validation_failed', false, $intent, $plan, $toolResults);
     }
 
     return [
-        'ok'           => true,
-        'reply'        => $draft,
-        'path'         => 'agent_core',
-        'intent'       => $intent,
-        'plan'         => $plan,
-        'tool_results' => $toolResults,
-        'retryable'    => false,
-        'error'        => null,
-        'stage'        => 'HUMANIZE',
+        'ok'              => true,
+        'reply'           => $draft,
+        'path'            => 'agent_core',
+        'intent'          => $intent,
+        'plan'            => $plan,
+        'tool_results'    => $toolResults,
+        'retryable'       => false,
+        'error'           => null,
+        'stage'           => 'HUMANIZE',
+        'fallback_reason' => null,
     ];
 }
 
@@ -306,9 +423,10 @@ function agent_core_stage_plan(array $turn, array $conv, array $intent, array $s
  * @param array<string, mixed> $plan
  * @param array<string, mixed> $turn
  * @param array<string, mixed> $conv
+ * @param array<string, mixed> $intent
  * @return list<array<string, mixed>>
  */
-function agent_core_stage_tools(array $plan, array $turn, array $conv): array
+function agent_core_stage_tools(array $plan, array $turn, array $conv, array $intent = []): array
 {
     $results = [];
     $thread = '';
@@ -316,13 +434,36 @@ function agent_core_stage_tools(array $plan, array $turn, array $conv): array
         $thread .= ' ' . (string) ($row['message'] ?? '');
     }
     $turn['thread'] = trim($thread);
+    $liveWorld = agent_core_intent_is_live_world($intent);
     foreach (is_array($plan['tool_calls'] ?? null) ? $plan['tool_calls'] : [] as $call) {
         $name = (string) ($call['name'] ?? '');
         $args = is_array($call['args'] ?? null) ? $call['args'] : [];
         if ($name === 'live_web.search' && trim((string) ($args['thread'] ?? '')) === '' && $turn['thread'] !== '') {
             $args['thread'] = $turn['thread'];
         }
-        $results[] = agent_core_tool($name, $args, $turn);
+        agent_core_observe('CORE_TOOL_START', ['ok' => true, 'tool' => $name]);
+        if ($liveWorld && $name === 'live_web.search') {
+            agent_core_observe('LIVE_WORLD_TOOL_START', ['ok' => true, 'tool' => $name]);
+        }
+        $row = agent_core_tool($name, $args, $turn);
+        $failed = agent_core_tool_row_failed($row);
+        $status = [
+            'ok'     => !$failed,
+            'tool'   => $name,
+            'status' => $failed ? 'failed' : 'ok',
+        ];
+        if ($failed) {
+            agent_core_observe('CORE_TOOL_FAIL', $status);
+            if ($liveWorld && $name === 'live_web.search') {
+                agent_core_observe('LIVE_WORLD_TOOL_FAILED', $status);
+            }
+        } else {
+            agent_core_observe('CORE_TOOL_COMPLETE', $status);
+            if ($liveWorld && $name === 'live_web.search') {
+                agent_core_observe('LIVE_WORLD_TOOL_COMPLETE', $status);
+            }
+        }
+        $results[] = $row;
     }
 
     return $results;

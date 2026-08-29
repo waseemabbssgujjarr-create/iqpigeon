@@ -1695,6 +1695,7 @@ function wa_auto_reply_deliver_turn(array $turn, array $bot, string $phoneId, st
             return $out;
         }
 
+        $processingT0 = microtime(true);
         if ($turnId > 0 && function_exists('turn_engine_log_event')) {
             try {
                 db_execute(
@@ -1799,6 +1800,15 @@ function wa_auto_reply_deliver_turn(array $turn, array $bot, string $phoneId, st
                 [$reply, $path, $turnId]
             );
             wa_recover_log_event($turnId, 'RESPONSE_SENT', ['path' => $path, 'layer' => 'auto_reply_core']);
+            if (function_exists('turn_engine_log_event')) {
+                try {
+                    turn_engine_log_event($turnId, 'PROCESSING_TO_RESPONSE', [
+                        'elapsed_ms' => (int) round((microtime(true) - $processingT0) * 1000),
+                        'path'       => $path,
+                    ]);
+                } catch (Throwable $ignored) {
+                }
+            }
             wa_recover_close_lead_turns($leadId, $turnId, $path, $reply);
             if (is_file(__DIR__ . '/conversation-runtime-memory.php')) {
                 try {

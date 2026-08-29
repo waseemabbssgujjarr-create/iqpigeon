@@ -62,6 +62,15 @@ assert_test($img['message_type'] === 'image' && $img['caption'] === 'Which ones?
 assert_test(turn_engine_infer_state('How much is this?', 'DISCOVERY') === 'PRICE_INQUIRY', 'TEST 5 price inquiry state');
 assert_test(turn_engine_infer_state('Do you have this in stock?', 'DISCOVERY') === 'AVAILABILITY_CHECK', 'TEST 5b availability state');
 
+assert_test(
+    turn_engine_is_chase_nudge('?')
+    && turn_engine_is_chase_nudge('??')
+    && turn_engine_is_chase_nudge("why don't you reply")
+    && !turn_engine_is_chase_nudge('How much does it cost?')
+    && !turn_engine_is_chase_nudge('What are your opening hours?'),
+    'TEST 5c lone ? is a chase nudge; cost? is not'
+);
+
 // TEST 6 — duplicate idempotency (DB)
 try {
     turn_engine_ensure_schema();
@@ -586,7 +595,7 @@ assert_test(
     'TEST 47d persona stays internal; intro/friends/how-about-you never dump the prompt'
 );
 $sendNowFn = strpos($engineSrc, 'function turn_engine_send_leads_now');
-$sendNowSrc = $sendNowFn !== false ? substr($engineSrc, $sendNowFn, 3500) : '';
+$sendNowSrc = $sendNowFn !== false ? substr($engineSrc, $sendNowFn, 9000) : '';
 assert_test(
     str_contains($sendNowSrc, 'whatsapp_acquire_lead_reply_lock($leadId, 0)')
     && strpos($sendNowSrc, 'whatsapp_acquire_lead_reply_lock($leadId, 0)') < strpos($sendNowSrc, 'turn_engine_webhook_wait_quiet')
@@ -625,6 +634,9 @@ assert_test(
     && str_contains(mb_strtolower($whereYou), 'multan')
     && !str_contains(mb_strtolower($whereYou), 'lahore')
     && turn_engine_is_chase_nudge("why don't you reply")
+    && turn_engine_is_chase_nudge('?')
+    && turn_engine_is_chase_nudge('??')
+    && !turn_engine_is_chase_nudge('How much does it cost?')
     && !turn_engine_is_chase_nudge('What are your opening hours?')
     && str_contains($engineSrc, 'whatsapp_send_typing_indicator($phoneId, $token, $waId)')
     && str_contains(file_get_contents($root . '/client/training.php') ?: '', 'save_rep_name')

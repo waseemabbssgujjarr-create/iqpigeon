@@ -15,6 +15,7 @@ if (!defined('AGENT_CORE_BOT_IDS')) {
 }
 
 require_once __DIR__ . '/budget.php';
+require_once __DIR__ . '/observe.php';
 
 /**
  * Explicit allow-list. Empty = nobody.

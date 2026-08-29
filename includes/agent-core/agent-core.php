@@ -38,22 +38,39 @@ function agent_core_reply(array $bot, int $leadId, string $userMessage, int $tur
  */
 function agent_core_run(array $ctx): array
 {
+    agent_core_observe_begin($ctx);
     try {
-        return agent_core_pipeline($ctx);
+        $out = agent_core_pipeline($ctx);
+        if (agent_core_result_usable($out)) {
+            agent_core_observe('CORE_COMPLETE', [
+                'ok'              => true,
+                'fallback_reason' => null,
+                'intent_kind'     => (string) ($out['intent']['kind'] ?? ''),
+                'override'        => (string) ($out['intent']['override'] ?? ''),
+            ]);
+        }
+
+        return $out;
     } catch (Throwable $e) {
         error_log('agent_core_run: ' . $e->getMessage());
         $class = agent_core_classify_error($e, $ctx);
-
-        return [
-            'ok'           => false,
-            'reply'        => '',
-            'path'         => 'agent_core',
-            'intent'       => [],
-            'plan'         => [],
-            'tool_results' => [],
-            'retryable'    => !empty($class['retryable']),
-            'error'        => $e->getMessage(),
-            'stage'        => 'FAIL',
+        $fail = [
+            'ok'              => false,
+            'reply'           => '',
+            'path'            => 'agent_core',
+            'intent'          => [],
+            'plan'            => [],
+            'tool_results'    => [],
+            'retryable'       => !empty($class['retryable']),
+            'error'           => $e->getMessage(),
+            'stage'           => 'FAIL',
+            'fallback_reason' => 'exception',
         ];
+        agent_core_observe('CORE_FALLBACK', [
+            'ok'              => false,
+            'fallback_reason' => 'exception',
+        ]);
+
+        return $fail;
     }
 }

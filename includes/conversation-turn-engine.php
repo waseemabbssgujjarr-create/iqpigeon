@@ -3112,6 +3112,10 @@ function turn_engine_is_chase_nudge(string $text): bool
         return false;
     }
 
+    if (preg_match('/^[\?？]{1,4}$/u', $t)) {
+        return true;
+    }
+
     return (bool) preg_match(
         '/\b(why (don\'?t|didn\'?t|won\'?t) you (reply|respond|answer)|'
         . 'you (don\'?t|didn\'?t) reply|not replying|please reply|'
@@ -3530,77 +3534,105 @@ function turn_engine_send_leads_now(array $leadIds, array $bot, string $phoneId,
 
             // One waiter per lead: other burst webhooks ingest then leave.
             if (function_exists('whatsapp_acquire_lead_reply_lock') && !whatsapp_acquire_lead_reply_lock($leadId, 0)) {
+                if ($turnId > 0) {
+                    turn_engine_log_event($turnId, 'LOCK_BUSY', ['lead_id' => $leadId]);
+                }
                 $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'lock_busy'];
                 continue;
             }
             $heldLock = true;
             $GLOBALS['wa_reply_lock_held'][$leadId] = true;
 
-            $quiet = turn_engine_webhook_wait_quiet([$leadId], $phoneId, $token);
-            $turn = db_fetch('SELECT * FROM conversation_turns WHERE id = ?', 'i', [$turnId]) ?: $turn;
-            $chase = $turnId > 0 && turn_engine_turn_chase_should_reply($turnId);
-            if (!$quiet && !$chase && $turn && !turn_engine_row_is_quiet($turn)
-                && (string) ($turn['status'] ?? '') === 'buffering'
-            ) {
-                turn_engine_log_event($turnId, 'WAITING_FOR_DEBOUNCE', ['reason' => 'not_quiet_after_wait']);
-                error_log('iqp_debounce: still_waiting lead=' . $leadId . ' turn=' . $turnId);
-                $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'still_waiting'];
-                continue;
-            }
-
-            if (function_exists('wa_recover_response_sent') && $turnId > 0 && wa_recover_response_sent($turnId)) {
-                error_log('iqp_debounce: stale_job already_sent lead=' . $leadId . ' turn=' . $turnId);
-                $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'already_sent'];
-                continue;
-            }
-            if (turn_engine_lead_just_got_reply($leadId, 20)) {
-                error_log('iqp_debounce: stale_job recent_reply lead=' . $leadId);
-                $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'recent_reply'];
-                continue;
-            }
-
-            $turn = db_fetch('SELECT * FROM conversation_turns WHERE id = ?', 'i', [$turnId]) ?: $turn;
-            $waId = turn_engine_latest_wa_message_id($leadId);
-            $payload = $turnId > 0 && function_exists('turn_engine_build_turn_payload')
-                ? turn_engine_build_turn_payload($turnId)
-                : [];
-            $burstCount = (int) ($payload['text_part_count'] ?? $turn['message_count'] ?? 0);
-            error_log('iqp_debounce: ready lead=' . $leadId . ' turn=' . $turnId . ' burst=' . $burstCount);
-            turn_engine_log_event($turnId, 'READY', ['burst' => $burstCount]);
-            if (function_exists('whatsapp_webhook_log_event')) {
-                whatsapp_webhook_log_event('Context/AI compose ready', [
-                    'lead_id' => $leadId,
-                    'turn_id' => $turnId,
-                    'burst'   => $burstCount,
-                    'stage'   => 'compose_ready',
-                ]);
-            }
-            $waIds = $payload['wa_message_ids'] ?? ($waId !== '' ? [$waId] : []);
-
-            if ($waId !== '' && function_exists('whatsapp_send_typing_indicator')) {
-                try {
-                    whatsapp_send_typing_indicator($phoneId, $token, $waId);
-                } catch (Throwable $ignored) {
+            // Same lock, same worker: after a send, drain a follow-up buffering turn
+            // so a later inbound does not need "?" to wake processing.
+            for ($drain = 0; $drain < 4; $drain++) {
+                if ($drain > 0) {
+                    $turn = turn_engine_fetch_open_turn($leadId);
+                    if (!$turn) {
+                        break;
+                    }
+                    $nextId = (int) ($turn['id'] ?? 0);
+                    if ($nextId <= 0 || $nextId === $turnId) {
+                        break;
+                    }
+                    $turnId = $nextId;
+                    $sender = trim((string) ($turn['sender_phone'] ?? ''));
+                    if ($sender === '') {
+                        $lead = db_fetch('SELECT phone, whatsapp_id FROM leads WHERE id = ?', 'i', [$leadId]);
+                        $sender = trim((string) ($lead['phone'] ?? $lead['whatsapp_id'] ?? ''));
+                    }
+                    turn_engine_log_event($turnId, 'LOCK_DRAIN', ['lead_id' => $leadId, 'drain' => $drain]);
                 }
-            }
 
-            if ($sender !== '' && function_exists('turn_engine_arm_must_send')) {
-                turn_engine_arm_must_send($phoneId, $token, $sender, $leadId, $turnId, $waId, is_array($waIds) ? $waIds : []);
-            }
-
-            if ((string) ($turn['status'] ?? '') === 'buffering') {
-                turn_engine_finalize_turn($turnId, true);
+                $quiet = turn_engine_webhook_wait_quiet([$leadId], $phoneId, $token);
                 $turn = db_fetch('SELECT * FROM conversation_turns WHERE id = ?', 'i', [$turnId]) ?: $turn;
-            }
+                $chase = $turnId > 0 && turn_engine_turn_chase_should_reply($turnId);
+                if (!$quiet && !$chase && $turn && !turn_engine_row_is_quiet($turn)
+                    && (string) ($turn['status'] ?? '') === 'buffering'
+                ) {
+                    turn_engine_log_event($turnId, 'WAITING_FOR_DEBOUNCE', ['reason' => 'not_quiet_after_wait']);
+                    error_log('iqp_debounce: still_waiting lead=' . $leadId . ' turn=' . $turnId);
+                    $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'still_waiting'];
+                    break;
+                }
 
-            $one = wa_auto_reply_deliver_turn($turn, $bot, $phoneId, $token, true);
-            if (function_exists('turn_engine_mark_must_send_done')) {
-                turn_engine_mark_must_send_done();
-            }
-            $results[] = $one;
-            $path = (string) ($one['path'] ?? '');
-            if (!empty($one['ok']) && !in_array($path, ['already_sent', 'no_open_turn', 'lock_busy', 'recent_reply', 'still_waiting'], true)) {
-                $sent++;
+                if (function_exists('wa_recover_response_sent') && $turnId > 0 && wa_recover_response_sent($turnId)) {
+                    error_log('iqp_debounce: stale_job already_sent lead=' . $leadId . ' turn=' . $turnId);
+                    $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'already_sent'];
+                    break;
+                }
+                if ($drain === 0 && turn_engine_lead_just_got_reply($leadId, 20)) {
+                    error_log('iqp_debounce: stale_job recent_reply lead=' . $leadId);
+                    $results[] = ['ok' => true, 'lead_id' => $leadId, 'path' => 'recent_reply'];
+                    break;
+                }
+
+                $turn = db_fetch('SELECT * FROM conversation_turns WHERE id = ?', 'i', [$turnId]) ?: $turn;
+                $waId = turn_engine_latest_wa_message_id($leadId);
+                $payload = $turnId > 0 && function_exists('turn_engine_build_turn_payload')
+                    ? turn_engine_build_turn_payload($turnId)
+                    : [];
+                $burstCount = (int) ($payload['text_part_count'] ?? $turn['message_count'] ?? 0);
+                error_log('iqp_debounce: ready lead=' . $leadId . ' turn=' . $turnId . ' burst=' . $burstCount);
+                turn_engine_log_event($turnId, 'READY', ['burst' => $burstCount, 'drain' => $drain]);
+                if (function_exists('whatsapp_webhook_log_event')) {
+                    whatsapp_webhook_log_event('Context/AI compose ready', [
+                        'lead_id' => $leadId,
+                        'turn_id' => $turnId,
+                        'burst'   => $burstCount,
+                        'stage'   => 'compose_ready',
+                    ]);
+                }
+                $waIds = $payload['wa_message_ids'] ?? ($waId !== '' ? [$waId] : []);
+
+                if ($waId !== '' && function_exists('whatsapp_send_typing_indicator')) {
+                    try {
+                        whatsapp_send_typing_indicator($phoneId, $token, $waId);
+                    } catch (Throwable $ignored) {
+                    }
+                }
+
+                if ($sender !== '' && function_exists('turn_engine_arm_must_send')) {
+                    turn_engine_arm_must_send($phoneId, $token, $sender, $leadId, $turnId, $waId, is_array($waIds) ? $waIds : []);
+                }
+
+                if ((string) ($turn['status'] ?? '') === 'buffering') {
+                    turn_engine_finalize_turn($turnId, true);
+                    $turn = db_fetch('SELECT * FROM conversation_turns WHERE id = ?', 'i', [$turnId]) ?: $turn;
+                }
+
+                $one = wa_auto_reply_deliver_turn($turn, $bot, $phoneId, $token, true);
+                if (function_exists('turn_engine_mark_must_send_done')) {
+                    turn_engine_mark_must_send_done();
+                }
+                $results[] = $one;
+                $path = (string) ($one['path'] ?? '');
+                if (!empty($one['ok']) && !in_array($path, ['already_sent', 'no_open_turn', 'lock_busy', 'recent_reply', 'still_waiting'], true)) {
+                    $sent++;
+                }
+                if (in_array($path, ['already_sent', 'lock_busy', 'no_open_turn'], true)) {
+                    break;
+                }
             }
         } catch (Throwable $e) {
             error_log('turn_engine_send_leads_now lead #' . $leadId . ': ' . $e->getMessage());

@@ -342,7 +342,7 @@ ac_assert(
 ac_assert(
     !str_contains($pipelineSrc, "Got you. I'm listening")
     && str_contains($pipelineSrc, "return \$fail('validation_failed'")
-    && str_contains($pipelineSrc, "return \$fail('empty_compose'"),
+    && str_contains($pipelineSrc, 'empty_compose'),
     'Core run does not send a generic listening line on failure'
 );
 
@@ -358,7 +358,8 @@ ac_assert(
     empty($threw['ok'])
     && trim((string) ($threw['reply'] ?? '')) === ''
     && ac_compose_path($threw) === 'webhook_mind'
-    && ($threw['error'] ?? '') === 'test_forced_core_failure',
+    && ($threw['error'] ?? '') === 'test_forced_core_failure'
+    && ($threw['fallback_reason'] ?? '') === 'exception',
     'Core exception → webhook_mind fallback'
 );
 
@@ -367,6 +368,7 @@ ac_assert(
     empty($emptyCore['ok'])
     && trim((string) ($emptyCore['reply'] ?? '')) === ''
     && ($emptyCore['error'] ?? '') === 'empty_compose'
+    && ($emptyCore['fallback_reason'] ?? '') === 'empty_generate'
     && ac_compose_path($emptyCore) === 'webhook_mind',
     'empty Core result → webhook_mind fallback'
 );
@@ -378,6 +380,7 @@ ac_assert(
     empty($badVal['ok'])
     && trim((string) ($badVal['reply'] ?? '')) === ''
     && ($badVal['error'] ?? '') === 'validation_failed'
+    && ($badVal['fallback_reason'] ?? '') === 'validation_failed'
     && ac_compose_path($badVal) === 'webhook_mind'
     && !str_contains((string) json_encode($badVal), "Got you"),
     'validation failure after retry → webhook_mind fallback'
@@ -601,6 +604,164 @@ ac_assert(
     && !str_contains($pipelineSrc, 'db_execute')
     && !str_contains($runSrc, 'INSERT INTO'),
     '22 no accidental DB mutation from Core tools/run'
+);
+
+function ac_sink_names(): array
+{
+    $names = [];
+    foreach ($GLOBALS['agent_core_event_sink'] ?? [] as $row) {
+        $names[] = (string) ($row['event'] ?? '');
+    }
+
+    return $names;
+}
+
+function ac_sink_blob(): string
+{
+    return (string) json_encode($GLOBALS['agent_core_event_sink'] ?? [], JSON_UNESCAPED_UNICODE);
+}
+
+$observeSrc = file_get_contents($root . '/includes/agent-core/observe.php') ?: '';
+$engineNow = file_get_contents($root . '/includes/conversation-turn-engine.php') ?: '';
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_draft'] = 'Hello.';
+$okRun = agent_core_run($hiCtx);
+unset($GLOBALS['agent_core_test_draft']);
+$okNames = ac_sink_names();
+ac_assert(
+    !empty($okRun['ok'])
+    && trim((string) ($okRun['reply'] ?? '')) !== ''
+    && ac_compose_path($okRun) === 'agent_core'
+    && in_array('CORE_START', $okNames, true)
+    && in_array('CORE_CONTEXT', $okNames, true)
+    && in_array('CORE_INTENT', $okNames, true)
+    && in_array('CORE_SOURCE', $okNames, true)
+    && in_array('CORE_PLAN', $okNames, true)
+    && in_array('CORE_TOOLS', $okNames, true)
+    && in_array('CORE_GENERATE', $okNames, true)
+    && in_array('CORE_VALIDATE', $okNames, true)
+    && in_array('CORE_COMPLETE', $okNames, true)
+    && !in_array('CORE_FALLBACK', $okNames, true)
+    && (($okRun['fallback_reason'] ?? null) === null),
+    '1 Core success emits stage events and stays on agent_core'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_throw'] = true;
+$exRun = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_throw']);
+ac_assert(
+    ($exRun['fallback_reason'] ?? '') === 'exception'
+    && in_array('CORE_FALLBACK', ac_sink_names(), true)
+    && ac_compose_path($exRun) === 'webhook_mind',
+    '2 Core exception records fallback_reason=exception'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$emptyRun = agent_core_run($petrolCtx);
+ac_assert(
+    ($emptyRun['fallback_reason'] ?? '') === 'empty_generate'
+    && in_array('CORE_GENERATE', ac_sink_names(), true)
+    && in_array('CORE_FALLBACK', ac_sink_names(), true),
+    '3 empty generation records fallback_reason=empty_generate'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_draft'] = 'Reply with a number from our menu';
+$valRun = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_draft']);
+ac_assert(
+    ($valRun['fallback_reason'] ?? '') === 'validation_failed'
+    && in_array('CORE_VALIDATE', ac_sink_names(), true)
+    && in_array('CORE_FALLBACK', ac_sink_names(), true),
+    '4 validation failure records fallback_reason=validation_failed'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_fail_reason'] = 'tool_failure';
+$toolFail = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_fail_reason']);
+ac_assert(
+    ($toolFail['fallback_reason'] ?? '') === 'tool_failure'
+    && ac_compose_path($toolFail) === 'webhook_mind'
+    && in_array('CORE_TOOLS', ac_sink_names(), true)
+    && in_array('CORE_FALLBACK', ac_sink_names(), true),
+    '5 tool failure records fallback_reason=tool_failure'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_draft'] = 'I could not verify the latest information just now.';
+$lwRun = agent_core_run($petrolCtx);
+unset($GLOBALS['agent_core_test_draft']);
+$lwNames = ac_sink_names();
+ac_assert(
+    in_array('LIVE_WORLD_DETECTED', $lwNames, true)
+    && in_array('LIVE_WORLD_TOOL_SELECTED', $lwNames, true)
+    && in_array('LIVE_WORLD_TOOL_START', $lwNames, true)
+    && (in_array('LIVE_WORLD_TOOL_COMPLETE', $lwNames, true) || in_array('LIVE_WORLD_TOOL_FAILED', $lwNames, true))
+    && in_array('LIVE_WORLD_EVIDENCE_PRESENT', $lwNames, true)
+    && in_array('LIVE_WORLD_GENERATE', $lwNames, true)
+    && in_array('CORE_COMPLETE', $lwNames, true)
+    && (($lwRun['intent']['override'] ?? '') === 'LIVE_WORLD' || ($lwRun['intent']['kind'] ?? '') === 'LIVE_WORLD'),
+    '6 LIVE_WORLD selection and tool events are recorded'
+);
+
+$offTry = agent_core_channel_try(['id' => 53], 0, 'hi', 0, 'whatsapp');
+ac_assert(
+    ($offTry['path'] ?? '') === 'core_off'
+    && ($offTry['fallback_reason'] ?? '') === 'disabled'
+    && ac_compose_path($offTry) === 'webhook_mind',
+    '7 Core fallback when disabled/not allowlisted stays webhook_mind'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_observe_throw'] = true;
+$GLOBALS['agent_core_test_draft'] = 'Hello.';
+$safeRun = agent_core_run($hiCtx);
+unset($GLOBALS['agent_core_observe_throw'], $GLOBALS['agent_core_test_draft']);
+ac_assert(
+    !empty($safeRun['ok'])
+    && trim((string) ($safeRun['reply'] ?? '')) !== ''
+    && ac_compose_path($safeRun) === 'agent_core',
+    '8 instrumentation cannot break a Core reply'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$secretCtx = $hiCtx;
+$secretCtx['text'] = 'CUSTOMER_SECRET_PHRASE_9921 please call me';
+$secretCtx['access_token'] = 'EAABBBSECRETTOKEN999';
+$GLOBALS['agent_core_test_draft'] = 'Hello.';
+$secretRun = agent_core_run($secretCtx);
+unset($GLOBALS['agent_core_test_draft']);
+$secretBlob = ac_sink_blob();
+ac_assert(
+    !empty($secretRun['ok'])
+    && !str_contains($secretBlob, 'CUSTOMER_SECRET_PHRASE_9921')
+    && !str_contains($secretBlob, 'EAABBBSECRETTOKEN999')
+    && !str_contains($secretBlob, 'sk-')
+    && str_contains($observeSrc, 'AGENT_CORE_OBSERVE_DROP_KEYS'),
+    '9 diagnostic events do not store secrets or the customer message'
+);
+
+ac_assert(
+    AGENT_CORE_ENABLED === false
+    && agent_core_bot_ids() === []
+    && agent_core_enabled(['id' => 53]) === false
+    && str_contains($bootSrc, "define('AGENT_CORE_ENABLED', false)"),
+    '10 existing default-OFF behavior remains unchanged'
+);
+
+ac_assert(
+    str_contains($engineNow, 'LOCK_DRAIN')
+    && str_contains($engineNow, 'LOCK_BUSY')
+    && str_contains($engineNow, 'for ($drain = 0; $drain < 4; $drain++)')
+    && str_contains($engineNow, '$drain === 0 && turn_engine_lead_just_got_reply')
+    && str_contains($engineNow, "preg_match('/^[\\?？]{1,4}$/u'")
+    && str_contains($coreSrc, "'path' => 'RESPONSE_SENT'") === false
+    && str_contains($coreSrc, 'PROCESSING_TO_RESPONSE')
+    && str_contains($coreSrc, 'wa_recover_log_event($turnId, \'RESPONSE_SENT\''),
+    'lock drain + ? chase + processing_to_response; RESPONSE_SENT event name unchanged'
 );
 
 echo "\n{$passed} passed, {$failed} failed\n";
