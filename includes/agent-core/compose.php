@@ -5,6 +5,34 @@
 declare(strict_types=1);
 
 /**
+ * Canonical training offer list when the inbound is an offer/service question.
+ * Empty when this is not an offer question or this bot has no listed services.
+ * Local knowledge — does not call OpenAI.
+ *
+ * @param array<string, mixed> $bot
+ */
+function agent_core_canonical_offer_draft(array $bot, string $userMessage): string
+{
+    $userMessage = trim($userMessage);
+    if ($userMessage === '' || $userMessage === '[Customer sent a message]') {
+        return '';
+    }
+    $knowledge = dirname(__DIR__) . '/bot-knowledge.php';
+    if (!is_file($knowledge)) {
+        return '';
+    }
+    require_once $knowledge;
+    if (!function_exists('knowledge_message_is_offer_question')
+        || !function_exists('knowledge_offer_list_reply')
+        || !knowledge_message_is_offer_question($userMessage)
+    ) {
+        return '';
+    }
+
+    return trim(knowledge_offer_list_reply($bot));
+}
+
+/**
  * @param array<string, mixed> $pack
  * @param array<string, mixed> $plan
  * @param list<array<string, mixed>> $toolResults
@@ -17,17 +45,22 @@ function agent_core_compose(array $pack, array $plan, array $toolResults, array 
         return $GLOBALS['agent_core_test_draft'];
     }
 
-    // Budget contract: wa_skip_openai blocks the old human-layer OpenAI helpers,
-    // not conversation_mind_generate (already the live WhatsApp brain after ACK + 7s quiet).
-    if (!agent_core_may_call_mind_generate()) {
-        return '';
-    }
-
     $bot = is_array($turnCtx['bot'] ?? null) ? $turnCtx['bot'] : [];
     $leadId = (int) ($turnCtx['lead_id'] ?? 0);
     $userMessage = trim((string) ($turnCtx['text'] ?? ''));
     if ($userMessage === '') {
         $userMessage = '[Customer sent a message]';
+    }
+
+    $canonical = agent_core_canonical_offer_draft($bot, $userMessage);
+    if ($canonical !== '') {
+        return mb_substr($canonical, 0, 900);
+    }
+
+    // Budget contract: wa_skip_openai blocks the old human-layer OpenAI helpers,
+    // not conversation_mind_generate (already the live WhatsApp brain after ACK + 7s quiet).
+    if (!agent_core_may_call_mind_generate()) {
+        return '';
     }
 
     require_once dirname(__DIR__) . '/conversation-mind.php';

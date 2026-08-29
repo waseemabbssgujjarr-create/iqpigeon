@@ -132,10 +132,20 @@ ac_assert(
 );
 
 $composeSrc = file_get_contents($root . '/includes/agent-core/compose.php') ?: '';
+$validateSrc = file_get_contents($root . '/includes/agent-core/validate.php') ?: '';
+$budgetComposeFn = strpos($coreSrc, 'function wa_auto_reply_compose');
+$budgetComposeSrc = $budgetComposeFn !== false ? substr($coreSrc, $budgetComposeFn, 2800) : '';
 ac_assert(
     str_contains($composeSrc, 'conversation_mind_generate')
-    && !str_contains($composeSrc, 'ai_chat('),
-    'compose uses conversation_mind_generate, not a second ai_chat brain'
+    && !str_contains($composeSrc, 'ai_chat(')
+    && str_contains($composeSrc, 'function agent_core_canonical_offer_draft')
+    && str_contains($composeSrc, 'knowledge_message_is_offer_question')
+    && str_contains($composeSrc, 'knowledge_offer_list_reply')
+    && str_contains($composeSrc, 'agent_core_canonical_offer_draft($bot, $userMessage)')
+    && str_contains($validateSrc, "in_array(\$reason, ['marketing_dump', 'truncated'], true)")
+    && !str_contains($budgetComposeSrc, 'knowledge_offer_list_reply')
+    && !str_contains($budgetComposeSrc, 'knowledge_message_is_offer_question'),
+    'compose uses conversation_mind_generate; offer-list is inside Core compose, not a webhook_mind bypass'
 );
 
 ac_assert(
@@ -762,6 +772,170 @@ ac_assert(
     && str_contains($coreSrc, 'PROCESSING_TO_RESPONSE')
     && str_contains($coreSrc, 'wa_recover_log_event($turnId, \'RESPONSE_SENT\''),
     'lock drain + ? chase + processing_to_response; RESPONSE_SENT event name unchanged'
+);
+
+require_once $root . '/includes/bot-knowledge.php';
+$coachKb = "Waqar Tayyub is a business and performance coach.\n"
+    . "Rate \$80/hour — 1:1 coaching sessions\n"
+    . "Greet Customers when they text you with: This is Salman from Waqar Tayyub & Co. How can I help you today?\n"
+    . "List of Services Offered:\n"
+    . "- Neural Performance Coaching\n"
+    . "- Corporate Training\n"
+    . "- Workplace Productivity\n"
+    . "- Immersive Leadership Development\n"
+    . "- AI Growth and Adoption for High Performing Teams";
+$coachBot = [
+    'id'            => 53,
+    'rep_name'      => 'Salman',
+    'name'          => 'Waqar Tayyub & Co.',
+    'company_name'  => 'Waqar Tayyub & Co.',
+    'industry_key'  => 'freelancer',
+    'bot_knowledge' => $coachKb,
+];
+$coachListed = knowledge_offer_list_reply($coachBot);
+$coachCtx = [
+    'channel' => 'whatsapp',
+    'bot'     => $coachBot,
+    'bot_id'  => 53,
+    'lead_id' => 0,
+    'turn_id' => 0,
+    'media'   => [],
+    'text'    => 'What services do you offer?',
+    'profile' => [
+        'industry_key' => 'freelancer',
+        'brand'        => 'Waqar Tayyub & Co.',
+        'rep'          => 'Salman',
+        'capabilities' => ['live_web'],
+    ],
+];
+
+unset($GLOBALS['agent_core_test_draft']);
+$GLOBALS['agent_core_event_sink'] = [];
+$svcRun = agent_core_run($coachCtx);
+$svcBlob = ac_sink_blob();
+ac_assert(
+    $coachListed !== ''
+    && mb_strlen($coachListed) > 180
+    && knowledge_message_is_offer_question('What services do you offer?')
+    && trim((string) ($svcRun['reply'] ?? '')) === $coachListed
+    && !empty($svcRun['ok'])
+    && ac_compose_path($svcRun) === 'agent_core'
+    && (($svcRun['fallback_reason'] ?? null) === null)
+    && !in_array('CORE_FALLBACK', ac_sink_names(), true)
+    && in_array('CORE_COMPLETE', ac_sink_names(), true)
+    && !str_contains((string) ($svcRun['reply'] ?? ''), "Got you. I'm listening")
+    && !str_contains($svcBlob, 'What services do you offer?'),
+    'A offer question uses canonical knowledge list on agent_core, not webhook_mind'
+);
+
+$offerWordCtx = $coachCtx;
+$offerWordCtx['text'] = 'What do you offer?';
+$GLOBALS['agent_core_event_sink'] = [];
+$offerWordRun = agent_core_run($offerWordCtx);
+ac_assert(
+    knowledge_message_is_offer_question('What do you offer?')
+    && !empty($offerWordRun['ok'])
+    && trim((string) ($offerWordRun['reply'] ?? '')) === $coachListed
+    && ac_compose_path($offerWordRun) === 'agent_core',
+    'B "What do you offer?" is Core-usable with the canonical list'
+);
+
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_draft'] = 'Hi there! How can I assist you today?';
+$helloCoach = $coachCtx;
+$helloCoach['text'] = 'Hello';
+$helloRun = agent_core_run($helloCoach);
+unset($GLOBALS['agent_core_test_draft']);
+ac_assert(
+    !knowledge_message_is_offer_question('Hello')
+    && agent_core_canonical_offer_draft($coachBot, 'Hello') === ''
+    && !empty($helloRun['ok'])
+    && ac_compose_path($helloRun) === 'agent_core'
+    && trim((string) ($helloRun['reply'] ?? '')) === 'Hi there! How can I assist you today?',
+    'C greeting stays Core-usable and does not take the offer-list branch'
+);
+
+$jokeAsk = $coachCtx;
+$jokeAsk['text'] = 'Tell me a joke';
+$GLOBALS['agent_core_event_sink'] = [];
+$GLOBALS['agent_core_test_draft'] = 'A short clean joke.';
+$jokeRun = agent_core_run($jokeAsk);
+unset($GLOBALS['agent_core_test_draft']);
+ac_assert(
+    !knowledge_message_is_offer_question('Tell me a joke')
+    && agent_core_canonical_offer_draft($coachBot, 'Tell me a joke') === ''
+    && !empty($jokeRun['ok'])
+    && trim((string) ($jokeRun['reply'] ?? '')) === 'A short clean joke.'
+    && ac_compose_path($jokeRun) === 'agent_core'
+    && str_contains($composeSrc, 'conversation_mind_generate'),
+    'D non-catalog questions still use normal Core generate, not the offer-list draft'
+);
+
+$noListBot = $restaurant;
+$noListCtx = $baseCtx;
+$noListCtx['text'] = 'What services do you offer?';
+$noListCtx['bot'] = $noListBot;
+unset($GLOBALS['agent_core_test_draft']);
+$GLOBALS['agent_core_event_sink'] = [];
+$noListRun = agent_core_run($noListCtx);
+ac_assert(
+    knowledge_message_is_offer_question('What services do you offer?')
+    && knowledge_offer_list_reply($noListBot) === ''
+    && agent_core_canonical_offer_draft($noListBot, 'What services do you offer?') === ''
+    && empty($noListRun['ok'])
+    && trim((string) ($noListRun['reply'] ?? '')) === ''
+    && ac_compose_path($noListRun) === 'webhook_mind'
+    && in_array('CORE_FALLBACK', ac_sink_names(), true),
+    'E missing canonical offer list leaves Core unusable; webhook_mind remains fallback'
+);
+
+$marketingDump = 'We can develop concepts and transform your ideas into brand stories. '
+    . 'Our services include dramatic product reveals, lifestyle storytelling, high-impact social, '
+    . 'content strategy, cinematic advertisements, and marketing packages for every brand concept.';
+ac_assert(mb_strlen($marketingDump) > 180, 'marketing dump fixture is long enough');
+$dumpCheck = agent_core_validate($marketingDump, $petrolCtx, $petrolIntent, $petrolPlan);
+$dumpOnOffer = agent_core_validate($marketingDump, $coachCtx, agent_core_intent($coachCtx, $emptyConv), [
+    'source'      => 'BUSINESS_CATALOG',
+    'answer_kind' => 'BUSINESS',
+    'outcome'     => 'BUSINESS_INQUIRY',
+]);
+ac_assert(
+    empty($dumpCheck['ok'])
+    && ($dumpCheck['reason'] ?? '') === 'marketing_dump'
+    && empty($dumpOnOffer['ok'])
+    && ($dumpOnOffer['reason'] ?? '') === 'marketing_dump',
+    'F arbitrary long marketing-like replies still fail marketing_dump validation'
+);
+
+$listedCheck = agent_core_validate(
+    $coachListed,
+    $coachCtx,
+    agent_core_intent($coachCtx, $emptyConv),
+    ['source' => 'BUSINESS_CATALOG', 'answer_kind' => 'BUSINESS', 'outcome' => 'BUSINESS_INQUIRY']
+);
+$listedOnPetrol = agent_core_validate($coachListed, $petrolCtx, $petrolIntent, $petrolPlan);
+ac_assert(
+    conversation_is_marketing_dump_reply($coachListed) === true
+    && !empty($listedCheck['ok'])
+    && empty($listedOnPetrol['ok'])
+    && ($listedOnPetrol['reason'] ?? '') === 'marketing_dump',
+    'G canonical offer list is not rejected as marketing_dump on an offer question; still rejected off-path'
+);
+
+ac_assert(
+    !str_contains($pipelineSrc, "Got you. I'm listening")
+    && !str_contains((string) ($svcRun['reply'] ?? ''), "Got you. I'm listening")
+    && !str_contains((string) ($noListRun['reply'] ?? ''), "Got you. I'm listening"),
+    'H Core offer path does not send a generic listening fallback'
+);
+
+$offerSink = (string) json_encode($GLOBALS['agent_core_event_sink'] ?? [], JSON_UNESCAPED_UNICODE);
+ac_assert(
+    !str_contains($svcBlob, 'Neural Performance Coaching')
+    && !str_contains($svcBlob, 'CUSTOMER_SECRET')
+    && !str_contains($offerSink, $coachListed)
+    && str_contains($observeSrc, 'AGENT_CORE_OBSERVE_DROP_KEYS'),
+    'I offer-list instrumentation still drops customer text and reply bodies'
 );
 
 echo "\n{$passed} passed, {$failed} failed\n";

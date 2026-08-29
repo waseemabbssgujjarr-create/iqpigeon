@@ -25,7 +25,17 @@ function agent_core_validate(string $draft, array $turnCtx, array $intent, array
         require_once dirname(__DIR__) . '/conversation-response-validator.php';
         $base = conversation_validate_customer_reply($leadId, $draft, $userMessage);
         if (empty($base['ok'])) {
-            return $base;
+            $reason = (string) ($base['reason'] ?? '');
+            $bot = is_array($turnCtx['bot'] ?? null) ? $turnCtx['bot'] : [];
+            $canonical = function_exists('agent_core_canonical_offer_draft')
+                ? agent_core_canonical_offer_draft($bot, $userMessage)
+                : '';
+            $allowCatalog = $canonical !== ''
+                && $draft === $canonical
+                && in_array($reason, ['marketing_dump', 'truncated'], true);
+            if (!$allowCatalog) {
+                return $base;
+            }
         }
     }
 
