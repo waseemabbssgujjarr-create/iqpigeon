@@ -182,20 +182,35 @@ function agent_core_pipeline(array $ctx): array
     ]));
     if (agent_core_intent_is_live_world($intent)) {
         $present = agent_core_live_evidence_present($toolResults);
-        agent_core_observe('LIVE_WORLD_EVIDENCE_PRESENT', [
+        $liveBits = [];
+        foreach ($toolResults as $row) {
+            if ((string) ($row['name'] ?? '') === 'live_web.search') {
+                $liveBits = agent_core_live_observe_bits(is_array($row['data'] ?? null) ? $row['data'] : []);
+                break;
+            }
+        }
+        agent_core_observe('LIVE_WORLD_EVIDENCE_PRESENT', array_merge($liveBits, [
             'ok'               => $present,
             'evidence_present' => $present,
-        ]);
+        ]));
     }
     if ($forced === 'tool_failure') {
         return $fail('tool_failure', false, $intent, $plan, $toolResults);
     }
 
     if (agent_core_intent_is_live_world($intent)) {
-        agent_core_observe('LIVE_WORLD_GENERATE', [
+        $present = agent_core_live_evidence_present($toolResults);
+        $liveBits = [];
+        foreach ($toolResults as $row) {
+            if ((string) ($row['name'] ?? '') === 'live_web.search') {
+                $liveBits = agent_core_live_observe_bits(is_array($row['data'] ?? null) ? $row['data'] : []);
+                break;
+            }
+        }
+        agent_core_observe('LIVE_WORLD_GENERATE', array_merge($liveBits, [
             'ok'               => true,
-            'evidence_present' => agent_core_live_evidence_present($toolResults),
-        ]);
+            'evidence_present' => $present,
+        ]));
     }
     $draft = trim(agent_core_stage_generate($pack, $plan, $toolResults, $turn, $conv));
     agent_core_observe('CORE_GENERATE', array_merge(agent_core_observe_intent_bits($intent), [
@@ -452,6 +467,9 @@ function agent_core_stage_tools(array $plan, array $turn, array $conv, array $in
             'tool'   => $name,
             'status' => $failed ? 'failed' : 'ok',
         ];
+        if ($liveWorld && $name === 'live_web.search') {
+            $status = array_merge($status, agent_core_live_observe_bits(is_array($row['data'] ?? null) ? $row['data'] : []));
+        }
         if ($failed) {
             agent_core_observe('CORE_TOOL_FAIL', $status);
             if ($liveWorld && $name === 'live_web.search') {

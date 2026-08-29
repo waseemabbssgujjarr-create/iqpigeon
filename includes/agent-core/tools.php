@@ -99,20 +99,24 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
         }
         if ($name === 'live_web.search') {
             if (!empty($GLOBALS['agent_core_no_network'])) {
-                return ['ok' => true, 'name' => $name, 'data' => ['needed' => true, 'ok' => false, 'evidence' => '', 'skipped' => 'no_network']];
+                return ['ok' => true, 'name' => $name, 'data' => [
+                    'needed'                 => true,
+                    'ok'                     => false,
+                    'evidence'               => '',
+                    'skipped'                => 'no_network',
+                    'evidence_usable'        => false,
+                    'has_web_search_call'    => false,
+                    'web_search_call_status' => '',
+                    'looks_like_refusal'     => false,
+                    'evidence_chars'         => 0,
+                ]];
             }
             require_once dirname(__DIR__) . '/live-world-info.php';
             $thread = trim((string) ($args['thread'] ?? $turnCtx['thread'] ?? ''));
             $found = live_world_maybe_search($query, $thread);
             if (empty($found['needed']) && $query !== '' && function_exists('live_world_search')) {
                 $direct = live_world_search($query);
-                $found = [
-                    'needed'    => true,
-                    'performed' => !empty($direct['performed']) || !empty($direct['cached']),
-                    'ok'        => !empty($direct['ok']),
-                    'evidence'  => trim((string) ($direct['text'] ?? '')),
-                    'error'     => (string) ($direct['error'] ?? ''),
-                ];
+                $found = live_world_search_to_tool_data($direct, true);
             }
 
             return ['ok' => true, 'name' => $name, 'data' => $found];

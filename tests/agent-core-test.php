@@ -574,6 +574,71 @@ ac_assert(
     '14 tool selection: live_web for petrol; catalog.get_product is allowed read-only'
 );
 
+/**
+ * @param array<string, mixed> $data
+ * @return list<array<string, mixed>>
+ */
+function ac_live_row(array $data): array
+{
+    return [['ok' => true, 'name' => 'live_web.search', 'data' => $data]];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function ac_live_payload(string $text, ?string $callStatus = 'completed', string $callType = 'web_search_call'): array
+{
+    $output = [];
+    if ($callStatus !== null) {
+        $output[] = [
+            'type'   => $callType,
+            'id'     => 'ws_test',
+            'status' => $callStatus,
+        ];
+    }
+    $output[] = [
+        'type'    => 'message',
+        'role'    => 'assistant',
+        'content' => [['type' => 'output_text', 'text' => $text]],
+    ];
+
+    return ['output_text' => $text, 'output' => $output];
+}
+
+/**
+ * @param array<string, mixed> $payload
+ * @return array<string, mixed>
+ */
+function ac_live_tool_data(array $payload): array
+{
+    $text = live_world_extract_output_text($payload);
+    $quality = live_world_assess_evidence($text, live_world_inspect_web_search($payload));
+
+    return live_world_search_to_tool_data(
+        live_world_search_pack_result(!empty($quality['ok']), $text, true, $quality),
+        true
+    );
+}
+
+$lahoreCtx = $baseCtx;
+$lahoreCtx['text'] = 'What is the weather in Lahore today?';
+$lahoreIntent = agent_core_intent($lahoreCtx, $emptyConv);
+$lahoreSource = agent_core_source_route($lahoreCtx, $emptyConv, $lahoreIntent);
+$lahorePlan = agent_core_plan($lahoreCtx, $emptyConv, $lahoreIntent, $lahoreSource, ['prompt' => '', 'rep' => 'Sara', 'brand' => 'The Sicilian']);
+$lahoreQuery = '';
+foreach (is_array($lahorePlan['tool_calls'] ?? null) ? $lahorePlan['tool_calls'] : [] as $call) {
+    if (($call['name'] ?? '') === 'live_web.search') {
+        $lahoreQuery = (string) ($call['args']['query'] ?? '');
+    }
+}
+ac_assert(
+    ($lahoreIntent['kind'] ?? '') === 'LIVE_WORLD'
+    && in_array('live_web.search', $lahoreIntent['tools'] ?? [], true)
+    && str_contains(mb_strtolower($lahoreQuery), 'lahore')
+    && str_contains(mb_strtolower($lahoreQuery), 'weather'),
+    'Lahore weather query is preserved on the live_web.search tool call'
+);
+
 ac_assert(ac_compose_path($threw) === 'webhook_mind', '15 Core failure → webhook_mind fallback');
 ac_assert(ac_compose_path($emptyCore) === 'webhook_mind', '16 empty generation → fallback');
 ac_assert(ac_compose_path($badVal) === 'webhook_mind', '17 validation failure → fallback');
@@ -774,6 +839,62 @@ ac_assert(
     'lock drain + ? chase + processing_to_response; RESPONSE_SENT event name unchanged'
 );
 
+$azSrc = file_get_contents($root . '/api/wa-az-audit.php') ?: '';
+$eventsPos = strpos($azSrc, "if (\$part === 'events')");
+$composePos = strpos($azSrc, "if (\$part === 'compose')");
+$eventsSlice = ($eventsPos !== false && $composePos !== false && $composePos > $eventsPos)
+    ? substr($azSrc, $eventsPos, $composePos - $eventsPos)
+    : '';
+$authPos = strpos($azSrc, 'hash_equals($cron, $key)');
+ac_assert(
+    $authPos !== false
+    && $eventsPos !== false
+    && $authPos < $eventsPos
+    && str_contains($azSrc, '&part=events')
+    && str_contains($azSrc, 'function az_sanitize_event_detail')
+    && str_contains($azSrc, 'function az_watched_core_events')
+    && str_contains($azSrc, 'agent_core_observe_sanitize')
+    && str_contains($eventsSlice, 'FROM conversation_turn_events')
+    && str_contains($eventsSlice, 'WHERE turn_id = ?')
+    && str_contains($eventsSlice, 'ORDER BY created_at ASC')
+    && str_contains($eventsSlice, 'turn_id_required')
+    && str_contains($eventsSlice, 'turn_not_found')
+    && str_contains($eventsSlice, 'no_events')
+    && str_contains($eventsSlice, "'status' => 'error'")
+    && str_contains($azSrc, 'LIVE_WORLD_DETECTED')
+    && str_contains($azSrc, 'LIVE_WORLD_TOOL_FAILED')
+    && str_contains($azSrc, 'CORE_FALLBACK')
+    && str_contains($azSrc, "'RESPONSE_SENT'")
+    && str_contains($azSrc, "'PROCESSING_TO_RESPONSE'")
+    && str_contains($eventsSlice, "'select_only' => true")
+    && str_contains($eventsSlice, "'sends'       => false")
+    && !str_contains($eventsSlice, 'INSERT ')
+    && !str_contains($eventsSlice, 'UPDATE ')
+    && !str_contains($eventsSlice, 'DELETE ')
+    && !str_contains($eventsSlice, 'wa_recover_run')
+    && !str_contains($eventsSlice, 'wa_recover_send_whatsapp')
+    && !str_contains($eventsSlice, 'graph.facebook')
+    && !str_contains($eventsSlice, 'raw_text')
+    && !str_contains($eventsSlice, 'wa_auto_reply_compose'),
+    'part=events is CRON-gated SELECT-only Core event dump with no send/recovery'
+);
+
+$secretDetail = agent_core_observe_sanitize([
+    'ok'           => true,
+    'message'      => 'What is the weather in Lahore today?',
+    'access_token' => 'EAABBBSECRETTOKEN999',
+    'prompt'       => 'You are a sales agent',
+    'fallback_reason' => 'empty_generate',
+]);
+ac_assert(
+    ($secretDetail['ok'] ?? false) === true
+    && ($secretDetail['fallback_reason'] ?? '') === 'empty_generate'
+    && !array_key_exists('message', $secretDetail)
+    && !array_key_exists('access_token', $secretDetail)
+    && !array_key_exists('prompt', $secretDetail),
+    'event detail sanitizer drops customer text, tokens, and prompts'
+);
+
 require_once $root . '/includes/bot-knowledge.php';
 $coachKb = "Waqar Tayyub is a business and performance coach.\n"
     . "Rate \$80/hour — 1:1 coaching sessions\n"
@@ -936,6 +1057,113 @@ ac_assert(
     && !str_contains($offerSink, $coachListed)
     && str_contains($observeSrc, 'AGENT_CORE_OBSERVE_DROP_KEYS'),
     'I offer-list instrumentation still drops customer text and reply bodies'
+);
+
+require_once $root . '/includes/live-world-info.php';
+$weatherEvidence = 'Lahore is currently 33 C and partly cloudy, with light wind this afternoon.';
+$refusalEvidence = "I'm sorry, but I can't provide real-time weather updates. For the latest weather in Lahore, please check a reliable local source.";
+$genericEvidence = 'Thanks for your question. How can I help you today?';
+
+$liveWeatherData = ac_live_tool_data(ac_live_payload($weatherEvidence, 'completed'));
+$liveWeatherRow = ac_live_row($liveWeatherData);
+$liveCtx = agent_core_mind_ctx_from_plan(
+    ['prompt' => '', 'business_facts' => []],
+    $petrolPlan,
+    $liveWeatherRow,
+    $petrolCtx,
+    $emptyConv
+);
+$mindSrc = file_get_contents($root . '/includes/conversation-mind.php') ?: '';
+$lwSrc = file_get_contents($root . '/includes/live-world-info.php') ?: '';
+ac_assert(
+    !empty($liveWeatherData['evidence_usable'])
+    && agent_core_live_evidence_present($liveWeatherRow) === true
+    && agent_core_tool_row_failed($liveWeatherRow[0]) === false
+    && (string) ($liveWeatherData['evidence'] ?? '') === $weatherEvidence
+    && (string) ($liveCtx['live_world']['evidence'] ?? '') === $weatherEvidence
+    && live_world_search_is_usable($liveWeatherData) === true
+    && str_contains($mindSrc, 'conversation_mind_live_answer')
+    && str_contains($mindSrc, 'live_world_search_is_usable')
+    && str_contains($lwSrc, 'web_search_call'),
+    'A real-looking weather evidence + completed web_search_call is usable and reaches generate ctx unchanged'
+);
+
+$liveEmptyData = ac_live_tool_data(ac_live_payload('', 'completed'));
+require_once $root . '/includes/openai.php';
+require_once $root . '/includes/conversation-mind.php';
+$emptyLiveReply = conversation_mind_generate($restaurant, 0, 'What is the weather in Lahore today?', [
+    'history'      => [],
+    'live_world'   => $liveEmptyData,
+    'source_route' => ['needs_web' => true, 'primary' => 'LIVE_WEB'],
+]);
+ac_assert(
+    empty($liveEmptyData['evidence_usable'])
+    && agent_core_live_evidence_present(ac_live_row($liveEmptyData)) === false
+    && $emptyLiveReply === conversation_mind_unverified_live_reply($restaurant)
+    && str_contains($emptyLiveReply, 'couldn\'t verify'),
+    'B empty evidence is unusable and uses the truthful unverified live reply'
+);
+
+$liveRefusalData = ac_live_tool_data(ac_live_payload($refusalEvidence, 'completed'));
+$refusalLiveReply = conversation_mind_generate($restaurant, 0, 'What is the weather in Lahore today?', [
+    'history'      => [],
+    'live_world'   => $liveRefusalData,
+    'source_route' => ['needs_web' => true, 'primary' => 'LIVE_WEB'],
+]);
+$refusalBits = agent_core_live_observe_bits($liveRefusalData);
+$refusalSan = agent_core_observe_sanitize($refusalBits + ['prompt' => 'secret-prompt', 'evidence' => $refusalEvidence]);
+ac_assert(
+    !empty($liveRefusalData['looks_like_refusal'])
+    && empty($liveRefusalData['evidence_usable'])
+    && (string) ($liveRefusalData['evidence'] ?? '') === ''
+    && agent_core_live_evidence_present(ac_live_row($liveRefusalData)) === false
+    && agent_core_tool_row_failed(ac_live_row($liveRefusalData)[0]) === true
+    && $refusalLiveReply === conversation_mind_unverified_live_reply($restaurant)
+    && ($refusalBits['looks_like_refusal'] ?? false) === true
+    && ($refusalBits['evidence_usable'] ?? true) === false
+    && !array_key_exists('prompt', $refusalSan)
+    && ($refusalSan['evidence_chars'] ?? 0) > 0
+    && !in_array($refusalEvidence, $refusalBits, true),
+    'C refusal-shaped evidence is unusable, not present, and does not leak into events or generate'
+);
+
+$liveGenericNoSearch = ac_live_tool_data(ac_live_payload($genericEvidence, null));
+$liveGenericWithSearch = live_world_assess_evidence($genericEvidence, live_world_inspect_web_search(ac_live_payload($genericEvidence, 'completed')));
+ac_assert(
+    empty($liveGenericNoSearch['evidence_usable'])
+    && agent_core_live_evidence_present(ac_live_row($liveGenericNoSearch)) === false
+    && trim($genericEvidence) !== ''
+    && empty($liveGenericWithSearch['looks_like_refusal']),
+    'D nonempty generic text is not verified evidence without a web search call'
+);
+
+$liveNoCallWeather = ac_live_tool_data(ac_live_payload($weatherEvidence, null));
+$liveFailedCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'failed'));
+$liveIncompleteCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'incomplete'));
+$liveCancelledCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'cancelled'));
+$liveInProgressCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'in_progress'));
+$liveSearchingCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'searching'));
+$liveOmittedCall = ac_live_tool_data(ac_live_payload($weatherEvidence, ''));
+$liveUnknownCall = ac_live_tool_data(ac_live_payload($weatherEvidence, 'succeeded'));
+$livePreviewOk = ac_live_tool_data(ac_live_payload($weatherEvidence, 'completed', 'web_search_preview_call'));
+$petrolEvidence = 'Petrol in Pakistan is currently around 272 PKR per litre.';
+$livePetrolData = ac_live_tool_data(ac_live_payload($petrolEvidence, 'completed'));
+ac_assert(
+    empty($liveNoCallWeather['has_web_search_call'])
+    && empty($liveNoCallWeather['evidence_usable'])
+    && empty($liveFailedCall['evidence_usable'])
+    && (string) ($liveFailedCall['web_search_call_status'] ?? '') === 'failed'
+    && empty($liveIncompleteCall['evidence_usable'])
+    && empty($liveCancelledCall['evidence_usable'])
+    && empty($liveInProgressCall['evidence_usable'])
+    && empty($liveSearchingCall['evidence_usable'])
+    && empty($liveOmittedCall['evidence_usable'])
+    && empty($liveUnknownCall['evidence_usable'])
+    && !empty($livePreviewOk['evidence_usable'])
+    && (string) ($livePreviewOk['evidence'] ?? '') === $weatherEvidence
+    && !empty($livePetrolData['evidence_usable'])
+    && (string) ($livePetrolData['evidence'] ?? '') === $petrolEvidence,
+    'E web search not executed/unknown is unusable; completed preview_call and non-weather live facts still count'
 );
 
 echo "\n{$passed} passed, {$failed} failed\n";

@@ -525,12 +525,15 @@ function conversation_mind_generate(array $bot, int $leadId, string $userMessage
                 $ctx['live_world'] = live_world_maybe_search($userMessage, $thread);
             }
             $search = is_array($ctx['live_world'] ?? null) ? $ctx['live_world'] : [];
-            if (!empty($search['needed']) && (empty($search['ok']) || trim((string) ($search['evidence'] ?? '')) === '')) {
+            $liveUsable = function_exists('live_world_search_is_usable')
+                ? live_world_search_is_usable($search)
+                : (!empty($search['ok']) && trim((string) ($search['evidence'] ?? '')) !== '');
+            if (!empty($search['needed']) && !$liveUsable) {
                 error_log('iqp_websearch: refuse_stale bot=' . (int) ($bot['id'] ?? 0) . ' lead=' . $leadId);
 
                 return conversation_mind_unverified_live_reply($bot);
             }
-            if (!empty($search['needed']) && !empty($search['ok'])) {
+            if (!empty($search['needed']) && $liveUsable) {
                 $live = conversation_mind_live_answer($bot, $userMessage, $ctx, $search);
                 if ($live !== '') {
                     return $live;

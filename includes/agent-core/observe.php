@@ -182,12 +182,47 @@ function agent_core_live_evidence_present(array $toolResults): bool
             continue;
         }
         $data = is_array($row['data'] ?? null) ? $row['data'] : [];
-        if (trim((string) ($data['evidence'] ?? '')) !== '' && !empty($data['ok'])) {
+        if (agent_core_live_search_data_usable($data)) {
             return true;
         }
     }
 
     return false;
+}
+
+/**
+ * @param array<string, mixed> $data
+ */
+function agent_core_live_search_data_usable(array $data): bool
+{
+    if (function_exists('live_world_tool_data_usable')) {
+        return live_world_tool_data_usable($data);
+    }
+
+    return !empty($data['ok'])
+        && !empty($data['evidence_usable'])
+        && trim((string) ($data['evidence'] ?? '')) !== ''
+        && empty($data['looks_like_refusal']);
+}
+
+/**
+ * Sanitized LIVE_WORLD metadata only — never the evidence string.
+ *
+ * @param array<string, mixed> $data
+ * @return array<string, mixed>
+ */
+function agent_core_live_observe_bits(array $data): array
+{
+    $usable = agent_core_live_search_data_usable($data);
+
+    return [
+        'evidence_chars'         => (int) ($data['evidence_chars'] ?? 0),
+        'has_web_search_call'    => !empty($data['has_web_search_call']),
+        'web_search_call_status' => mb_substr((string) ($data['web_search_call_status'] ?? ''), 0, 40),
+        'looks_like_refusal'     => !empty($data['looks_like_refusal']),
+        'evidence_usable'        => $usable,
+        'evidence_present'       => $usable,
+    ];
 }
 
 /**
@@ -216,6 +251,9 @@ function agent_core_tool_row_failed(array $row): bool
         return false;
     }
     $data = is_array($row['data'] ?? null) ? $row['data'] : [];
+    if (empty($data['needed'])) {
+        return false;
+    }
 
-    return !empty($data['needed']) && empty($data['ok']) && trim((string) ($data['evidence'] ?? '')) === '';
+    return !agent_core_live_search_data_usable($data);
 }
