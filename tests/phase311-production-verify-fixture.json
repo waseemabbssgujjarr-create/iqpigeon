@@ -1,0 +1,27 @@
+{
+  "config": {
+    "master_enabled": true,
+    "rollout_bot_ids": [53]
+  },
+  "bots": [
+    {"id": 53, "is_active": 1, "whatsapp_auto_reply": 1},
+    {"id": 54, "is_active": 1, "whatsapp_auto_reply": 1}
+  ],
+  "input": {
+    "production_audit_batches": [
+      {
+        "bot_id": 53,
+        "n_events": {
+          "select_only": true,
+          "turn_id": 90001,
+          "ok": true,
+          "events": [
+            {"event_type": "CORE_START", "detail_json": {"turn_id": 90001, "bot_id": 53, "channel": "whatsapp"}},
+            {"event_type": "CORE_COMPLETE", "detail_json": {"ok": true}},
+            {"event_type": "RESPONSE_SENT", "detail_json": {}}
+          ]
+        }
+      }
+    ]
+  }
+}

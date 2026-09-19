@@ -1,0 +1,44 @@
+{
+  "version": "1",
+  "package_type": "phase311_rollout_evidence",
+  "required_fields": [
+    "release_commit",
+    "rollout_stage",
+    "previous_stage",
+    "candidate_bots",
+    "active_bots",
+    "rollout_timestamp",
+    "evidence_state",
+    "release_gate_status",
+    "critical_failure_count",
+    "manual_apply_required"
+  ],
+  "evidence_states": [
+    "NOT_STARTED",
+    "COLLECTING",
+    "SUFFICIENT",
+    "INSUFFICIENT",
+    "CRITICAL_FAILURE",
+    "READY_FOR_REVIEW"
+  ],
+  "review_decisions": [
+    "EXPAND",
+    "HOLD",
+    "ROLLBACK",
+    "BLOCKED"
+  ],
+  "bot_verification_axes": [
+    "CONFIGURED",
+    "ELIGIBLE",
+    "EFFECTIVE"
+  ],
+  "ops_policy": {
+    "min_core_turns_for_sufficient": 1,
+    "min_bots_with_verified_core": 1,
+    "require_gate_pass_for_expand": true,
+    "require_operator_approval_flag_for_expand": true,
+    "treat_missing_audit_as": "NOT_VERIFIED",
+    "expansion_requires_evidence_states": ["SUFFICIENT", "READY_FOR_REVIEW"]
+  },
+  "production_evidence_note": "Real WhatsApp audit batches must be supplied by operator from GET /api/wa-az-audit.php — never fabricated in harness."
+}
