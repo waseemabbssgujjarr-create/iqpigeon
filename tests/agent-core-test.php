@@ -141,6 +141,49 @@ foreach ([
     ac_assert(str_contains($runSrc, $mindModule), 'ELIG-15 Agent Mind module loaded: ' . $mindModule);
 }
 
+$rolloutBot53 = ['id' => 53, 'is_active' => 1, 'whatsapp_auto_reply' => 1, 'widget_enabled' => 0];
+$rolloutBotOther = ['id' => 9002, 'is_active' => 1, 'whatsapp_auto_reply' => 1, 'widget_enabled' => 0];
+
+ac_assert(
+    agent_core_enabled($rolloutBot53, 'whatsapp') === false,
+    'ROLLOUT-1 master OFF → bot 53 blocked regardless of rollout config'
+);
+$GLOBALS['agent_core_enabled_override'] = true;
+unset($GLOBALS['agent_core_rollout_bot_ids_override']);
+ac_assert(
+    agent_core_enabled($rolloutBot53, 'whatsapp') === true
+    && agent_core_enabled($rolloutBotOther, 'whatsapp') === true,
+    'ROLLOUT-2 master ON + rollout empty → all eligible bots allowed (unchanged)'
+);
+$GLOBALS['agent_core_rollout_bot_ids_override'] = [53];
+ac_assert(
+    agent_core_enabled($rolloutBot53, 'whatsapp') === true,
+    'ROLLOUT-3 master ON + rollout [53] → bot 53 allowed'
+);
+ac_assert(
+    agent_core_enabled($rolloutBotOther, 'whatsapp') === false,
+    'ROLLOUT-4 master ON + rollout [53] → other eligible bot blocked'
+);
+ac_assert(
+    agent_core_enabled(['id' => 53, 'is_active' => 0, 'whatsapp_auto_reply' => 1], 'whatsapp') === false,
+    'ROLLOUT-5 inactive bot 53 blocked even when on rollout list'
+);
+ac_assert(
+    agent_core_enabled(['id' => 53, 'is_active' => 1, 'whatsapp_auto_reply' => 0], 'whatsapp') === false,
+    'ROLLOUT-6 wrong channel (whatsapp off) blocked even when on rollout list'
+);
+unset($GLOBALS['agent_core_enabled_override'], $GLOBALS['agent_core_rollout_bot_ids_override']);
+ac_assert(
+    defined('AGENT_CORE_ROLLOUT_BOT_IDS') && trim((string) AGENT_CORE_ROLLOUT_BOT_IDS) === '',
+    'ROLLOUT-7 rollout list default empty (off)'
+);
+ac_assert(
+    str_contains($bootSrc, 'AGENT_CORE_ROLLOUT_BOT_IDS')
+    && str_contains($bootSrc, 'function agent_core_rollout_allows_bot')
+    && !preg_match('/function agent_core_enabled[\s\S]*AGENT_CORE_BOT_IDS/', $bootSrc),
+    'ROLLOUT-8 uses AGENT_CORE_ROLLOUT_BOT_IDS not deprecated AGENT_CORE_BOT_IDS'
+);
+
 ac_assert(
     wa_recover_diagnostic_hold_turn_ids() === [720, 635, 321, 306, 302, 134],
     'diagnostic hold ids unchanged (720 still held)'

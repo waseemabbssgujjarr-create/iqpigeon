@@ -124,10 +124,15 @@ define('BBD_ENABLED', true);
 define('BBD_PLAN_PRICE_PKR', 999);
 // Optional — verification links and OAuth return base when not on bbd.* subdomain
 define('BBD_URL', 'https://bbd.iqpigeon.com');
-// Agent Core master kill switch. When true, every eligible active bot uses Core automatically.
+// Agent Core master kill switch. When true, eligible active bots may use Core.
 // AGENT_CORE_BOT_IDS is deprecated/ignored (kept for older config.local.php compatibility).
 define('AGENT_CORE_ENABLED', false);
 define('AGENT_CORE_BOT_IDS', '');
+// Optional controlled production rollout. Default empty = all eligible bots (no bot-ID gate).
+// Non-empty comma-separated bot IDs temporarily restrict Core to those bots only.
+// Does not enable Core by itself — AGENT_CORE_ENABLED must still be true.
+// define('AGENT_CORE_ROLLOUT_BOT_IDS', '53');
+define('AGENT_CORE_ROLLOUT_BOT_IDS', '');
 
 // Live WhatsApp demo — wa.me link shown on landing page for instant testing
 define('WHATSAPP_DEMO_URL', 'https://wa.me/923114522101');

@@ -15,6 +15,11 @@ if (!defined('AGENT_CORE_BOT_IDS')) {
     define('AGENT_CORE_BOT_IDS', '');
 }
 
+// Optional controlled rollout allow-list. Default empty = no bot-ID restriction (all eligible bots).
+if (!defined('AGENT_CORE_ROLLOUT_BOT_IDS')) {
+    define('AGENT_CORE_ROLLOUT_BOT_IDS', '');
+}
+
 require_once __DIR__ . '/budget.php';
 require_once __DIR__ . '/observe.php';
 
@@ -73,8 +78,64 @@ function agent_core_bot_eligible(array $bot, string $channel = ''): bool
 }
 
 /**
+ * Parsed rollout allow-list. Empty = rollout gate off (all eligible bots may use Core).
+ * CLI tests may set $GLOBALS['agent_core_rollout_bot_ids_override'] (list<int>).
+ *
+ * @return list<int>
+ */
+function agent_core_rollout_bot_ids(): array
+{
+    if (PHP_SAPI === 'cli' && array_key_exists('agent_core_rollout_bot_ids_override', $GLOBALS)) {
+        $ids = [];
+        foreach ((array) $GLOBALS['agent_core_rollout_bot_ids_override'] as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    if (!defined('AGENT_CORE_ROLLOUT_BOT_IDS')) {
+        return [];
+    }
+
+    $raw = trim((string) AGENT_CORE_ROLLOUT_BOT_IDS);
+    if ($raw === '') {
+        return [];
+    }
+
+    $ids = [];
+    foreach (preg_split('/\s*,\s*/', $raw) ?: [] as $part) {
+        $id = (int) trim((string) $part);
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+
+    return array_values($ids);
+}
+
+/**
+ * @param array<string, mixed> $bot
+ */
+function agent_core_rollout_allows_bot(array $bot): bool
+{
+    $rollout = agent_core_rollout_bot_ids();
+    if ($rollout === []) {
+        return true;
+    }
+
+    $botId = (int) ($bot['id'] ?? 0);
+
+    return $botId > 0 && in_array($botId, $rollout, true);
+}
+
+/**
  * Core is on when the master flag is true and the bot is eligible for the channel.
- * No hard-coded bot IDs. Legacy AGENT_CORE_BOT_IDS is ignored.
+ * Legacy AGENT_CORE_BOT_IDS is ignored. Optional AGENT_CORE_ROLLOUT_BOT_IDS restricts
+ * which eligible bots may use Core when non-empty (default empty = no restriction).
  *
  * @param array<string, mixed> $bot
  */
@@ -83,6 +144,9 @@ function agent_core_enabled(array $bot, string $channel = ''): bool
     if (!agent_core_master_enabled()) {
         return false;
     }
+    if (!agent_core_bot_eligible($bot, $channel)) {
+        return false;
+    }
 
-    return agent_core_bot_eligible($bot, $channel);
+    return agent_core_rollout_allows_bot($bot);
 }
