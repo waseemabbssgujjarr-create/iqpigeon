@@ -1,0 +1,26 @@
+{
+  "gate": "phase39",
+  "version": "1",
+  "suite_requirements": {
+    "agent_core_mind": {"required_pass": 795, "label": "Agent Core/Mind regression"},
+    "phase36": {"required_pass": 45, "label": "Phase 3.6 offline evidence"},
+    "phase37": {"required_pass": 43, "label": "Phase 3.7 offline observability"},
+    "phase38_harness": {"required_pass": 20, "label": "Phase 3.8 offline evaluation harness"}
+  },
+  "scenario_requirements": {
+    "P38-001": {"required_for_release": true},
+    "P38-002": {"required_for_release": true},
+    "P38-003": {"required_for_release": true},
+    "P38-004": {"required_for_release": true},
+    "P38-005": {"required_for_release": true},
+    "P38-006": {"required_for_release": true},
+    "P38-007": {"required_for_release": true},
+    "P38-008": {"required_for_release": false},
+    "P38-009": {"required_for_release": true},
+    "P38-010": {"required_for_release": false},
+    "P38-011": {"required_for_release": false},
+    "P38-012": {"required_for_release": false}
+  },
+  "baseline_required": false,
+  "regression_exceptions": []
+}

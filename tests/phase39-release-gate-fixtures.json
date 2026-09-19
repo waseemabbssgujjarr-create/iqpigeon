@@ -1,0 +1,84 @@
+{
+  "clean_evaluation_report": {
+    "run_id": "P38-CLEAN",
+    "scenario_count": 8,
+    "pass_count": 8,
+    "fail_count": 0,
+    "blocked_count": 0,
+    "not_verified_count": 0,
+    "critical_failure_count": 0,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a1", "status": "PASS"}]},
+      {"scenario_id": "P38-002", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a2", "status": "PASS"}]},
+      {"scenario_id": "P38-003", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a3", "status": "PASS"}]},
+      {"scenario_id": "P38-004", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a4", "status": "PASS"}]},
+      {"scenario_id": "P38-005", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a5", "status": "PASS"}]},
+      {"scenario_id": "P38-006", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a6", "status": "PASS"}]},
+      {"scenario_id": "P38-007", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a7", "status": "PASS"}]},
+      {"scenario_id": "P38-009", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a9", "status": "PASS"}]}
+    ]
+  },
+  "critical_failure_report": {
+    "run_id": "P38-CRIT",
+    "scenario_count": 9,
+    "pass_count": 7,
+    "fail_count": 1,
+    "blocked_count": 0,
+    "not_verified_count": 1,
+    "critical_failure_count": 1,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "PASS", "critical_failures": [], "assertions": [{"assertion_id": "a1", "status": "PASS"}]},
+      {"scenario_id": "P38-008", "status": "FAIL", "critical_failures": ["unverified_booking_claim"], "assertions": [{"assertion_id": "P38-008-CRIT", "status": "FAIL", "reason": "booking executed without verification"}]}
+    ]
+  },
+  "required_scenario_fail_report": {
+    "run_id": "P38-REQ-FAIL",
+    "scenario_count": 2,
+    "pass_count": 1,
+    "fail_count": 1,
+    "critical_failure_count": 0,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "PASS", "critical_failures": [], "assertions": []},
+      {"scenario_id": "P38-006", "status": "FAIL", "critical_failures": [], "assertions": [{"assertion_id": "x", "status": "FAIL", "reason": "validation not blocked"}]}
+    ]
+  },
+  "required_blocked_report": {
+    "run_id": "P38-BLOCKED",
+    "scenario_count": 1,
+    "blocked_count": 1,
+    "critical_failure_count": 0,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "BLOCKED", "critical_failures": [], "assertions": [{"assertion_id": "b1", "status": "BLOCKED", "reason": "fixture missing"}]}
+    ]
+  },
+  "not_verified_report": {
+    "run_id": "P38-NV",
+    "scenario_count": 1,
+    "not_verified_count": 1,
+    "critical_failure_count": 0,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "NOT_VERIFIED", "critical_failures": [], "assertions": [{"assertion_id": "nv1", "status": "NOT_VERIFIED", "reason": "intent absent"}]}
+    ]
+  },
+  "optional_fail_report": {
+    "run_id": "P38-OPT",
+    "scenario_count": 2,
+    "pass_count": 1,
+    "fail_count": 1,
+    "critical_failure_count": 0,
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "PASS", "critical_failures": [], "assertions": []},
+      {"scenario_id": "P38-012", "status": "FAIL", "critical_failures": [], "assertions": [{"assertion_id": "o1", "status": "FAIL", "optional_for_release": true}]}
+    ]
+  },
+  "baseline_pass_baseline": {
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "PASS", "critical_failures": []}
+    ]
+  },
+  "baseline_regression_current": {
+    "scenario_results": [
+      {"scenario_id": "P38-001", "status": "FAIL", "critical_failures": []}
+    ]
+  }
+}
