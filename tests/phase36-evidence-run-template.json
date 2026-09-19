@@ -1,0 +1,29 @@
+{
+  "run_id": "P36-RUN-YYYYMMDD-001",
+  "date_time": "2026-09-19T12:00:00+05:00",
+  "operator": "",
+  "bot_id": 53,
+  "channel": "whatsapp",
+  "production_config_note": "AGENT_CORE_ENABLED=true; AGENT_CORE_ROLLOUT_BOT_IDS=53",
+  "scenarios": [
+    {
+      "scenario_id": "P36-001",
+      "trigger_message": "Hello",
+      "turn_id": null,
+      "conversation_id": null,
+      "observed_path": "NOT_VERIFIED",
+      "events": [],
+      "fallback": false,
+      "fallback_reason": null,
+      "timing_ms": null,
+      "result": "NOT_RUN",
+      "notes": ""
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 0,
+    "blocked": 0,
+    "not_run": 20
+  }
+}
