@@ -61,43 +61,9 @@ function agent_core_turn_context(
  */
 function agent_core_business_profile(array $bot): array
 {
-    $caps = [];
-    $botId = (int) ($bot['id'] ?? 0);
-    try {
-        if (function_exists('bot_uses_shop_catalog') || is_file(dirname(__DIR__) . '/bot-knowledge.php')) {
-            require_once dirname(__DIR__) . '/bot-knowledge.php';
-            if (bot_uses_shop_catalog($bot)) {
-                $caps[] = 'catalog';
-                $caps[] = 'cart';
-            }
-        }
-        if ($botId > 0 && is_file(dirname(__DIR__) . '/catalog.php')) {
-            require_once dirname(__DIR__) . '/catalog.php';
-            if (function_exists('catalog_bot_has_products') && catalog_bot_has_products($botId)) {
-                if (!in_array('catalog', $caps, true)) {
-                    $caps[] = 'catalog';
-                }
-                if (!in_array('cart', $caps, true)) {
-                    $caps[] = 'cart';
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        error_log('agent_core_business_profile catalog: ' . $e->getMessage());
-    }
-    try {
-        if ($botId > 0 && is_file(dirname(__DIR__) . '/booking.php')) {
-            require_once dirname(__DIR__) . '/booking.php';
-            $settings = booking_settings_for_bot($botId);
-            if (!empty($settings['enabled'])) {
-                $caps[] = 'booking';
-            }
-        }
-    } catch (Throwable $e) {
-        error_log('agent_core_business_profile booking: ' . $e->getMessage());
-    }
-    $caps[] = 'live_web';
-    $caps = array_values(array_unique($caps));
+    require_once __DIR__ . '/capabilities.php';
+    $caps = business_capabilities_for_bot($bot);
+    $capStates = business_capability_states_for_bot($bot);
 
     $brand = function_exists('get_bot_brand_label')
         ? get_bot_brand_label($bot)
@@ -112,5 +78,6 @@ function agent_core_business_profile(array $bot): array
         'rep'          => $rep,
         'address'      => trim((string) ($bot['address'] ?? '')),
         'capabilities' => $caps,
+        'capability_states' => $capStates,
     ];
 }

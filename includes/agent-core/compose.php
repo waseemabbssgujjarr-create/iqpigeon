@@ -33,6 +33,54 @@ function agent_core_canonical_offer_draft(array $bot, string $userMessage): stri
 }
 
 /**
+ * Owner-configured first greeting on a new conversation only — no re-introduction loops.
+ *
+ * @param array<string, mixed> $bot
+ * @param array<string, mixed> $conv
+ */
+function agent_core_canonical_greeting_draft(array $bot, string $userMessage, array $conv = []): string
+{
+    $userMessage = trim($userMessage);
+    if ($userMessage === '' || $userMessage === '[Customer sent a message]') {
+        return '';
+    }
+    $knowledge = dirname(__DIR__) . '/bot-knowledge.php';
+    if (!is_file($knowledge)) {
+        return '';
+    }
+    require_once $knowledge;
+    if (!function_exists('knowledge_greeting_for_conversation')) {
+        return '';
+    }
+    $history = is_array($conv['history'] ?? null) ? $conv['history'] : [];
+
+    return trim(knowledge_greeting_for_conversation($bot, $history, $userMessage));
+}
+
+/**
+ * Verified coaching/training price from owner training — no invented numbers.
+ *
+ * @param array<string, mixed> $bot
+ */
+function agent_core_canonical_price_draft(array $bot, string $userMessage): string
+{
+    $userMessage = trim($userMessage);
+    if ($userMessage === '' || $userMessage === '[Customer sent a message]') {
+        return '';
+    }
+    $knowledge = dirname(__DIR__) . '/bot-knowledge.php';
+    if (!is_file($knowledge)) {
+        return '';
+    }
+    require_once $knowledge;
+    if (!function_exists('knowledge_contextual_price_reply')) {
+        return '';
+    }
+
+    return trim(knowledge_contextual_price_reply($bot, $userMessage));
+}
+
+/**
  * Canonical business location from owner profile / training — no OpenAI.
  *
  * @param array<string, mixed> $bot
@@ -189,6 +237,18 @@ function agent_core_compose(array $pack, array $plan, array $toolResults, array 
         return mb_substr($locationDraft, 0, 900);
     }
 
+    $priceDraft = agent_core_canonical_price_draft($bot, $userMessage);
+    if ($priceDraft !== '') {
+        agent_core_compose_widget_log('price_canonical', $turnCtx);
+        return mb_substr($priceDraft, 0, 900);
+    }
+
+    $greetingDraft = agent_core_canonical_greeting_draft($bot, $userMessage, $conv);
+    if ($greetingDraft !== '') {
+        agent_core_compose_widget_log('greeting_canonical', $turnCtx);
+        return mb_substr($greetingDraft, 0, 900);
+    }
+
     $liveDraft = agent_core_compose_live_world_draft($pack, $plan, $toolResults, $turnCtx, $conv, $userMessage, $bot, $leadId);
     if ($liveDraft !== '') {
         return mb_substr($liveDraft, 0, 900);
@@ -265,8 +325,13 @@ function agent_core_mind_ctx_from_plan(array $pack, array $plan, array $toolResu
             if ($n !== '') {
                 $catalogLines[] = 'product: ' . $n;
             }
-        } elseif ($name === 'booking.offer' && is_string($data) && $data !== '') {
-            $catalogLines[] = $data;
+        } elseif (in_array($name, ['booking.offer', 'booking.availability'], true) && is_array($data)) {
+            $msg = trim((string) ($data['message'] ?? ''));
+            if ($msg !== '') {
+                $catalogLines[] = $msg;
+            }
+        } elseif ($name === 'booking.create' && is_array($data) && !empty($data['ok'])) {
+            $catalogLines[] = 'Verified booking: ' . (string) ($data['date'] ?? '') . ' ' . (string) ($data['time'] ?? '');
         } elseif ($name === 'cart.view' && is_string($data) && $data !== '') {
             $catalogLines[] = $data;
         }
@@ -302,9 +367,102 @@ function agent_core_mind_ctx_from_plan(array $pack, array $plan, array $toolResu
         . '. Answer kind: ' . ($answerKind !== '' ? $answerKind : (string) ($plan['outcome'] ?? ''))
         . '. Source: ' . (string) ($plan['source'] ?? '')
         . '. Asked: ' . mb_substr((string) ($plan['asked'] ?? ''), 0, 180)
-        . '. Referent: ' . (string) ($plan['referent'] ?? '')
-        . '. Do not open a menu or catalog unless catalog.search, catalog.get_product, or cart.view ran.'
+        . '. Referent: ' . (string) ($plan['referent'] ?? '');
+    if (trim((string) ($plan['customer_need_detail'] ?? '')) !== '') {
+        $planNote .= ' Need: ' . mb_substr((string) $plan['customer_need_detail'], 0, 160) . '.';
+    }
+    if (trim((string) ($plan['customer_goal'] ?? '')) !== '') {
+        $planNote .= ' Goal: ' . (string) $plan['customer_goal'] . '.';
+    }
+    if (trim((string) ($plan['readiness'] ?? '')) !== '') {
+        $planNote .= ' Readiness: ' . (string) $plan['readiness'] . '.';
+    }
+    if ((int) ($plan['message_budget'] ?? 0) > 0) {
+        $planNote .= ' Message budget: ' . (int) $plan['message_budget'] . ' turn(s).';
+    }
+    if (function_exists('agent_booking_compose_hint')) {
+        $bookingHint = agent_booking_compose_hint($plan, $toolResults);
+        if ($bookingHint !== '') {
+            $planNote .= ' ' . $bookingHint;
+        }
+    }
+    if (trim((string) ($plan['response_goal'] ?? '')) !== '') {
+        $planNote .= ' Plan: ' . mb_substr((string) $plan['response_goal'], 0, 420);
+    }
+    if (trim((string) ($plan['selected_action'] ?? '')) !== '') {
+        $planNote .= ' Selected action: ' . (string) $plan['selected_action'] . '.';
+    }
+    if (!empty($plan['multi_intent'])) {
+        $resolved = is_array($plan['resolved_intents'] ?? null) ? $plan['resolved_intents'] : [];
+        if ($resolved !== []) {
+            $planNote .= ' Resolve intents: ' . implode(', ', array_slice($resolved, 0, 4)) . '.';
+        }
+        if (!empty($plan['combined_action_possible'])) {
+            $planNote .= ' Combine compatible answers in one message — one CTA only.';
+        }
+    }
+    if (!empty($plan['objection'])) {
+        $planNote .= ' Objection: ' . (string) ($plan['objection_type'] ?? '') . ' → ' . (string) ($plan['objection_strategy'] ?? '') . '.';
+    }
+    if (trim((string) ($plan['answer_advance'] ?? '')) !== '') {
+        $planNote .= ' Answer mode: ' . (string) $plan['answer_advance'] . '.';
+    }
+    if (trim((string) ($plan['cta_mode'] ?? '')) !== '') {
+        $planNote .= ' CTA mode: ' . (string) $plan['cta_mode'] . '.';
+    }
+    if (trim((string) ($plan['cta_target'] ?? '')) !== '') {
+        $planNote .= ' CTA target: ' . mb_substr((string) $plan['cta_target'], 0, 120) . '.';
+    }
+    if (trim((string) ($plan['cta_text_strategy'] ?? '')) !== '') {
+        $planNote .= ' CTA strategy: ' . mb_substr((string) $plan['cta_text_strategy'], 0, 220) . '.';
+    }
+    if (!empty($plan['stop_allowed']) && in_array($plan['cta_mode'] ?? '', ['NONE', 'STOP'], true)) {
+        $planNote .= ' STOP — no follow-up CTA or generic "anything else" closers.';
+    }
+    if (trim((string) ($plan['next_best_action'] ?? '')) !== '') {
+        $planNote .= ' Next action: ' . (string) $plan['next_best_action'] . '.';
+    }
+    if (trim((string) ($plan['cta_hint'] ?? '')) !== '' && !in_array($plan['cta_mode'] ?? '', ['NONE', 'STOP'], true)) {
+        $planNote .= ' Legacy CTA hint: ' . mb_substr((string) $plan['cta_hint'], 0, 180) . '.';
+    }
+    $known = is_array($plan['known_information'] ?? null) ? $plan['known_information'] : [];
+    if ($known !== []) {
+        $planNote .= ' Already known (do NOT ask again): ' . implode('; ', array_slice($known, 0, 8)) . '.';
+    }
+    $ciMissing = is_array($plan['missing_information'] ?? null) ? $plan['missing_information'] : [];
+    if ($ciMissing !== [] && !empty($plan['clarification_needed'])) {
+        $planNote .= ' Missing only: ' . implode(', ', array_slice($ciMissing, 0, 6)) . '.';
+    }
+    if (!empty($plan['forbid_generic_loop'])) {
+        $planNote .= ' Do NOT use generic empathy lectures, "feel free to ask", "let me know if you need anything",'
+            . ' "if you have any other questions", or "how can I help" loops.'
+            . ' Do NOT re-introduce the business or assistant name unless this is the first message.';
+    }
+    $primaryNeed = trim((string) ($plan['customer_need'] ?? ''));
+    if ($primaryNeed === 'invite_speaker' || (string) ($plan['outcome'] ?? '') === 'EVENT_INVITATION') {
+        $planNote .= ' Event invitation: collect event details and invitation card if available.'
+            . ' Do NOT confirm Waqar is available or that the invitation was accepted/forwarded unless the system confirmed it.';
+    }
+    if (in_array((string) ($plan['outcome'] ?? ''), ['BOOKING', 'BOOKING_REQUEST'], true)
+        || $primaryNeed === 'book_appointment'
+    ) {
+        $planNote .= ' Booking: ask only for missing date/time/service details.'
+            . ' Do NOT claim you will check availability, book, confirm, or get back later unless booking tool evidence confirmed it.';
+    }
+    $planNote .= ' Coaching language: describe focus areas with "helps clients work on" / "draws on" —'
+        . ' never guarantee outcomes, medical/clinical results, or attendance unless verified.';
+    $planNote .= ' Never imply async background work (checking, confirming, forwarding, notifying) unless a backend action succeeded.';
+    $isPriceTurn = function_exists('conversation_intelligence_is_price_inquiry')
+        && conversation_intelligence_is_price_inquiry((string) ($turnCtx['text'] ?? ''));
+    if (($isPriceTurn || ($plan['next_best_action'] ?? '') === 'answer_price')
+        && !agent_core_compose_has_price_evidence($pack, $toolResults, $biz)
+    ) {
+        $planNote .= ' No verified price in business data yet — do NOT invent a number.'
+            . ' Share what is verified, or ask one necessary clarifier if a specific item price is required.';
+    }
+    $planNote .= ' Do not open a menu or catalog unless catalog.search, catalog.get_product, or cart.view ran.'
         . ' If live evidence is missing for a current-world question, say you could not verify it.'
+        . ' Never claim an order/booking/appointment is completed unless the system confirmed it.'
         . ' Do not mention tools, plans, or internal stages.';
     if ($mediaBits !== []) {
         $planNote .= ' Media understanding: ' . implode(' | ', $mediaBits);
@@ -328,6 +486,39 @@ function agent_core_mind_ctx_from_plan(array $pack, array $plan, array $toolResu
         'runtime_prompt'   => (string) ($pack['prompt'] ?? ''),
         'plan_note'        => $planNote,
     ];
+}
+
+/**
+ * @param list<string|array> $bizFacts
+ * @param list<array<string, mixed>> $toolResults
+ */
+function agent_core_compose_has_price_evidence(array $pack, array $toolResults, array $bizFacts): bool
+{
+    foreach ($bizFacts as $line) {
+        $s = is_scalar($line) ? (string) $line : '';
+        if ($s !== '' && preg_match('/\d/', $s) && preg_match('/\b(pkr|rs\.?|\$|usd|price|cost|fee|rate|charge|\/mo|per session)\b/iu', $s)) {
+            return true;
+        }
+    }
+    foreach ($toolResults as $row) {
+        if (!in_array((string) ($row['name'] ?? ''), ['catalog.search', 'catalog.get_product'], true) || empty($row['ok'])) {
+            continue;
+        }
+        $data = $row['data'] ?? null;
+        if (is_array($data)) {
+            foreach ($data as $hit) {
+                $p = is_array($hit['product'] ?? null) ? $hit['product'] : (is_array($hit) ? $hit : []);
+                if (!empty($p['price'])) {
+                    return true;
+                }
+            }
+            if (!empty($data['price'])) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 /**

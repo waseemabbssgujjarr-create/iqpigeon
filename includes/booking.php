@@ -198,8 +198,94 @@ function booking_next_slots(int $botId, int $count = 6, ?DateTimeImmutable $from
 }
 
 /**
- * WhatsApp-friendly numbered slot list for qualified leads.
+ * Whether a slot window is still free (re-check before create).
  */
+function booking_slot_is_free(int $botId, DateTimeImmutable $start, DateTimeImmutable $end): bool
+{
+    if ($botId <= 0) {
+        return false;
+    }
+    ensure_commerce_schema();
+    $settings = booking_settings_for_bot($botId);
+    $tz = new DateTimeZone((string) ($settings['timezone'] ?? 'Asia/Karachi'));
+    $start = $start->setTimezone($tz);
+    $end = $end->setTimezone($tz);
+    $row = db_fetch(
+        'SELECT id FROM bot_appointments
+         WHERE bot_id = ? AND status IN (\'pending\', \'confirmed\')
+         AND slot_start < ? AND slot_end > ? LIMIT 1',
+        'iss',
+        [$botId, $end->format('Y-m-d H:i:s'), $start->format('Y-m-d H:i:s')]
+    );
+
+    return $row === null;
+}
+
+/**
+ * Resolve customer date/time text to a slot if available.
+ *
+ * @return array{start: DateTimeImmutable, end: DateTimeImmutable, label: string}|null
+ */
+function booking_match_requested_slot(int $botId, string $dateText, string $timeText): ?array
+{
+    if ($botId <= 0) {
+        return null;
+    }
+    if (!empty($GLOBALS['agent_core_no_network'])) {
+        return null;
+    }
+    $settings = booking_settings_for_bot($botId);
+    if (empty($settings['enabled'])) {
+        return null;
+    }
+    $tz = new DateTimeZone((string) ($settings['timezone'] ?? 'Asia/Karachi'));
+    $now = new DateTimeImmutable('now', $tz);
+    $dateText = mb_strtolower(trim($dateText));
+    $timeText = mb_strtolower(trim($timeText));
+    $targetDay = $now;
+    if (str_contains($dateText, 'tomorrow')) {
+        $targetDay = $now->modify('+1 day');
+    } elseif (preg_match('/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/u', $dateText, $dm)) {
+        $targetDay = $now->modify('next ' . $dm[1]);
+    }
+    $hour = 0;
+    $minute = 0;
+    if (preg_match('/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/u', $timeText, $tm)) {
+        $hour = (int) $tm[1];
+        $minute = (int) ($tm[2] ?? 0);
+        if (($tm[3] ?? '') === 'pm' && $hour < 12) {
+            $hour += 12;
+        }
+        if (($tm[3] ?? '') === 'am' && $hour === 12) {
+            $hour = 0;
+        }
+    } elseif (preg_match('/\b(\d{1,2}):(\d{2})\b/u', $timeText, $tm)) {
+        $hour = (int) $tm[1];
+        $minute = (int) $tm[2];
+    } else {
+        return null;
+    }
+    $candidate = $targetDay->setTime($hour, $minute, 0);
+    $duration = max(15, (int) ($settings['slot_duration_min'] ?? 30));
+    $candidateEnd = $candidate->modify('+' . $duration . ' minutes');
+    foreach (booking_next_slots($botId, 48, $now) as $slot) {
+        /** @var DateTimeImmutable $st */
+        $st = $slot['start'];
+        if ($st->format('Y-m-d H:i') === $candidate->format('Y-m-d H:i')) {
+            return $slot;
+        }
+    }
+    if (booking_slot_is_free($botId, $candidate, $candidateEnd)) {
+        return [
+            'start' => $candidate,
+            'end'   => $candidateEnd,
+            'label' => $candidate->format('D j M, g:i A'),
+        ];
+    }
+
+    return null;
+}
+
 function booking_slots_message(int $botId, int $count = 6): string
 {
     $slots = booking_next_slots($botId, $count);

@@ -28,6 +28,18 @@ function agent_core_bot_ids(): array
 }
 
 /**
+ * Master kill switch — CLI tests may set $GLOBALS['agent_core_enabled_override'] (bool).
+ */
+function agent_core_master_enabled(): bool
+{
+    if (PHP_SAPI === 'cli' && array_key_exists('agent_core_enabled_override', $GLOBALS)) {
+        return (bool) $GLOBALS['agent_core_enabled_override'];
+    }
+
+    return defined('AGENT_CORE_ENABLED') && AGENT_CORE_ENABLED;
+}
+
+/**
  * Bot + channel eligibility without the master kill switch.
  * Missing is_active / channel flags are treated as allowed (fixtures / partial rows).
  *
@@ -68,7 +80,7 @@ function agent_core_bot_eligible(array $bot, string $channel = ''): bool
  */
 function agent_core_enabled(array $bot, string $channel = ''): bool
 {
-    if (!defined('AGENT_CORE_ENABLED') || !AGENT_CORE_ENABLED) {
+    if (!agent_core_master_enabled()) {
         return false;
     }
 

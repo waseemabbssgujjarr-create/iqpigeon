@@ -10,17 +10,26 @@ declare(strict_types=1);
 
 /**
  * @param array<string, mixed> $bot
+ */
+function agent_core_channel_off_reason(array $bot, string $channel = ''): string
+{
+    if (!function_exists('agent_core_master_enabled') || !agent_core_master_enabled()) {
+        return 'disabled';
+    }
+    if (function_exists('agent_core_bot_eligible') && !agent_core_bot_eligible($bot, $channel)) {
+        return 'inactive';
+    }
+
+    return 'unknown';
+}
+
+/**
+ * @param array<string, mixed> $bot
  * @return array<string, mixed>
  */
 function agent_core_channel_try(array $bot, int $leadId, string $message, int $turnId = 0, string $channel = 'whatsapp'): array
 {
-    if (!defined('AGENT_CORE_ENABLED') || !AGENT_CORE_ENABLED) {
-        $reason = 'disabled';
-    } elseif (function_exists('agent_core_bot_eligible') && !agent_core_bot_eligible($bot, $channel)) {
-        $reason = 'inactive';
-    } else {
-        $reason = 'disabled';
-    }
+    $reason = agent_core_channel_off_reason($bot, $channel);
     $empty = [
         'ok'              => false,
         'reply'           => '',

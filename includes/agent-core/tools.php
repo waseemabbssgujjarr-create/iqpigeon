@@ -11,9 +11,14 @@ const AGENT_CORE_FORBIDDEN_TOOLS = [
     'cart.add',
     'cart.remove',
     'order.place',
-    'booking.create',
     'qualification.update',
     'memory.write',
+];
+
+/** @var list<string> */
+const AGENT_CORE_PHASE2_MUTATING_TOOLS = [
+    'booking.create',
+    'human_handoff.create',
 ];
 
 /**
@@ -26,6 +31,13 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
     $name = trim($name);
     if ($name === '' || in_array($name, AGENT_CORE_FORBIDDEN_TOOLS, true)) {
         return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'forbidden_phase1'];
+    }
+    if (in_array($name, AGENT_CORE_PHASE2_MUTATING_TOOLS, true)) {
+        if (empty($turnCtx['allow_mutating_tools'])) {
+            return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'forbidden_phase1'];
+        }
+
+        return agent_core_mutating_tool($name, $args, $turnCtx);
     }
     if (!in_array($name, AGENT_CORE_PHASE1_TOOLS, true)) {
         return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'unknown_or_not_phase1'];
@@ -70,15 +82,26 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
 
             return ['ok' => true, 'name' => $name, 'data' => $block];
         }
-        if ($name === 'booking.offer') {
-            require_once dirname(__DIR__) . '/booking.php';
-            $settings = $botId > 0 ? booking_settings_for_bot($botId) : ['enabled' => 0];
+        if ($name === 'booking.offer' || $name === 'booking.availability') {
+            require_once __DIR__ . '/booking-tools.php';
+            $settings = $botId > 0 && function_exists('booking_settings_for_bot')
+                ? booking_settings_for_bot($botId)
+                : ['enabled' => 0];
             if (empty($settings['enabled'])) {
-                return ['ok' => true, 'name' => $name, 'data' => ''];
+                return ['ok' => true, 'name' => $name, 'data' => [
+                    'availability_verified' => false,
+                    'slots'                 => [],
+                    'message'               => '',
+                ]];
             }
-            $msg = booking_slots_message($botId, 6);
+            $data = booking_tool_availability(
+                $botId,
+                6,
+                trim((string) ($args['date'] ?? '')),
+                trim((string) ($args['time'] ?? ''))
+            );
 
-            return ['ok' => true, 'name' => $name, 'data' => $msg];
+            return ['ok' => !empty($data['ok']), 'name' => $name, 'data' => $data];
         }
         if ($name === 'memory.read') {
             $facts = agent_core_memory_read($botId, $leadId, $query);
@@ -128,4 +151,58 @@ function agent_core_tool(string $name, array $args, array $turnCtx): array
     }
 
     return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'unhandled'];
+}
+
+/**
+ * Phase 2 mutating business tools — executed only when plan.allow_mutating_tools is set.
+ *
+ * @param array<string, mixed> $args
+ * @param array<string, mixed> $turnCtx
+ * @return array<string, mixed>
+ */
+function agent_core_mutating_tool(string $name, array $args, array $turnCtx): array
+{
+    $bot = is_array($turnCtx['bot'] ?? null) ? $turnCtx['bot'] : [];
+    $botId = (int) ($turnCtx['bot_id'] ?? $bot['id'] ?? 0);
+    $leadId = (int) ($turnCtx['lead_id'] ?? 0);
+    $userId = (int) ($bot['user_id'] ?? 0);
+
+    try {
+        if ($name === 'booking.create') {
+            require_once __DIR__ . '/booking-tools.php';
+            $isoStart = trim((string) ($args['iso_start'] ?? ''));
+            $isoEnd = trim((string) ($args['iso_end'] ?? ''));
+            if ($isoStart === '' || $isoEnd === '') {
+                return ['ok' => false, 'name' => $name, 'data' => ['ok' => false, 'error' => 'missing_slot'], 'error' => 'missing_slot'];
+            }
+            $start = new DateTimeImmutable($isoStart);
+            $end = new DateTimeImmutable($isoEnd);
+            $data = booking_tool_create(
+                $botId,
+                $userId,
+                $leadId,
+                $start,
+                $end,
+                trim((string) ($args['name'] ?? '')) ?: null,
+                trim((string) ($args['phone'] ?? '')) ?: null,
+                trim((string) ($args['service'] ?? '')) ?: null
+            );
+
+            return ['ok' => !empty($data['ok']), 'name' => $name, 'data' => $data];
+        }
+        if ($name === 'human_handoff.create') {
+            require_once __DIR__ . '/handoff-tools.php';
+            $payload = is_array($args['payload'] ?? null) ? $args['payload'] : [];
+            $type = trim((string) ($args['request_type'] ?? 'human'));
+            $data = handoff_tool_create($botId, $leadId, $userId, $type, $payload);
+
+            return ['ok' => !empty($data['ok']), 'name' => $name, 'data' => $data];
+        }
+    } catch (Throwable $e) {
+        error_log('agent_core_mutating_tool ' . $name . ': ' . $e->getMessage());
+
+        return ['ok' => false, 'name' => $name, 'data' => null, 'error' => $e->getMessage()];
+    }
+
+    return ['ok' => false, 'name' => $name, 'data' => null, 'error' => 'unhandled_mutating'];
 }

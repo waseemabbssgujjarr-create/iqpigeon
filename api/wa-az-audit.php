@@ -13,6 +13,7 @@
  *   &part=orders    catalog counts + recent orders
  *   &part=logs      webhook + error tails
  *   &part=messages  SELECT-only conversation_turn_messages for &turn_id=
+ *   &part=events    SELECT-only conversation_turn_events for &turn_id=
  *   &part=compose   dry compose one open turn (no Graph send)
  *   &fix=1          send waiting replies (fallback, no OpenAI)
  */
@@ -80,6 +81,86 @@ function az_tail(string $path, int $maxLines = 20, int $maxBytes = 40000): array
     return array_values(array_slice($lines, -$maxLines));
 }
 
+/**
+ * Event names we want a present/absent map for. Never invented if missing.
+ *
+ * @return list<string>
+ */
+function az_watched_core_events(): array
+{
+    return [
+        'CORE_START',
+        'CORE_CONTEXT',
+        'CORE_INTENT',
+        'CORE_SOURCE',
+        'CORE_PLAN',
+        'CORE_TOOLS',
+        'CORE_GENERATE',
+        'CORE_VALIDATE',
+        'CORE_COMPLETE',
+        'CORE_FALLBACK',
+        'CORE_TOOL_START',
+        'CORE_TOOL_COMPLETE',
+        'CORE_TOOL_FAIL',
+        'LIVE_WORLD_DETECTED',
+        'LIVE_WORLD_TOOL_SELECTED',
+        'LIVE_WORLD_TOOL_START',
+        'LIVE_WORLD_TOOL_COMPLETE',
+        'LIVE_WORLD_TOOL_FAILED',
+        'LIVE_WORLD_EVIDENCE_PRESENT',
+        'LIVE_WORLD_GENERATE',
+        'LIVE_ANSWER_START',
+        'LIVE_ANSWER_COMPLETE',
+        'LIVE_ANSWER_FALLBACK',
+        'RESPONSE_SENT',
+        'PROCESSING_TO_RESPONSE',
+    ];
+}
+
+/**
+ * @param array<string, mixed> $in
+ * @return array<string, mixed>
+ */
+function az_drop_customerish_keys(array $in): array
+{
+    $extra = ['asked', 'query', 'search_query', 'user_text', 'combined', 'inbound', 'preview'];
+    $out = [];
+    foreach ($in as $key => $value) {
+        $lk = strtolower((string) $key);
+        if (in_array($lk, $extra, true)) {
+            continue;
+        }
+        $out[$key] = is_array($value) ? az_drop_customerish_keys($value) : $value;
+    }
+
+    return $out;
+}
+
+/**
+ * Sanitize stored event detail. Never returns tokens, prompts, or customer text.
+ *
+ * @return array<string, mixed>|null
+ */
+function az_sanitize_event_detail(mixed $raw): ?array
+{
+    $observe = dirname(__DIR__) . '/includes/agent-core/observe.php';
+    if (is_file($observe)) {
+        require_once $observe;
+    }
+    if (is_string($raw) && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : null;
+    }
+    if (!is_array($raw)) {
+        return null;
+    }
+    if (function_exists('agent_core_observe_sanitize')) {
+        $raw = agent_core_observe_sanitize($raw);
+    }
+
+    return az_drop_customerish_keys($raw);
+}
+
 $webhook = $root . '/api/whatsapp-webhook.php';
 $engine = $root . '/includes/conversation-turn-engine.php';
 $recover = $root . '/includes/wa-recover-lite.php';
@@ -96,7 +177,7 @@ $report = [
     'part' => $part,
     'time' => date('c'),
     'php'  => PHP_VERSION,
-    'hint' => 'Default is core only (no 503). Add &part=qualify | orders | logs | messages | compose. Add &fix=1 to send waiting chats.',
+    'hint' => 'Default is core only (no 503). Add &part=qualify | orders | logs | messages | events | compose. Add &fix=1 to send waiting chats.',
 ];
 
 if ($part === 'core' || $part === 'all') {
@@ -296,6 +377,92 @@ if ($part === 'messages') {
             'sends'       => false,
             'error'       => $e->getMessage(),
         ];
+    }
+}
+
+if ($part === 'events') {
+    $watched = az_watched_core_events();
+    $present = [];
+    foreach ($watched as $name) {
+        $present[$name] = false;
+    }
+    $base = [
+        'select_only' => true,
+        'sends'       => false,
+        'mutates'     => false,
+        'turn_id'     => $turnId,
+        'watched'     => $present,
+    ];
+    try {
+        if ($turnId <= 0) {
+            $report['n_events'] = array_merge($base, [
+                'ok'     => false,
+                'status' => 'turn_id_required',
+                'error'  => 'turn_id is required',
+                'events' => [],
+            ]);
+        } else {
+            $turnRow = db_fetch('SELECT id FROM conversation_turns WHERE id = ?', 'i', [$turnId]);
+            if (!$turnRow) {
+                $report['n_events'] = array_merge($base, [
+                    'ok'     => false,
+                    'status' => 'turn_not_found',
+                    'error'  => 'turn not found',
+                    'events' => [],
+                ]);
+            } else {
+                // Same event columns as turn_engine_get_turn_diagnostics(); SELECT only.
+                // Do not return messages/intelligence from that helper (customer text).
+                $rows = db_fetch_all(
+                    'SELECT event_type, detail_json, created_at
+                     FROM conversation_turn_events
+                     WHERE turn_id = ?
+                     ORDER BY created_at ASC, id ASC
+                     LIMIT 200',
+                    'i',
+                    [$turnId]
+                ) ?: [];
+                $events = [];
+                $typesFound = [];
+                foreach ($rows as $row) {
+                    $type = (string) ($row['event_type'] ?? '');
+                    if ($type === '') {
+                        continue;
+                    }
+                    $typesFound[$type] = true;
+                    if (array_key_exists($type, $present)) {
+                        $present[$type] = true;
+                    }
+                    $events[] = [
+                        'event_type'   => $type,
+                        'created_at'   => $row['created_at'] ?? null,
+                        'detail_json'  => az_sanitize_event_detail($row['detail_json'] ?? null),
+                    ];
+                }
+                $missing = [];
+                foreach ($present as $name => $seen) {
+                    if (!$seen) {
+                        $missing[] = $name;
+                    }
+                }
+                $report['n_events'] = array_merge($base, [
+                    'ok'                   => true,
+                    'status'               => $events === [] ? 'no_events' : 'ok',
+                    'count'                => count($events),
+                    'events'               => $events,
+                    'event_types_present'  => array_keys($typesFound),
+                    'watched'              => $present,
+                    'watched_missing'      => $missing,
+                ]);
+            }
+        }
+    } catch (Throwable $e) {
+        $report['n_events'] = array_merge($base, [
+            'ok'     => false,
+            'status' => 'error',
+            'error'  => $e->getMessage(),
+            'events' => [],
+        ]);
     }
 }
 

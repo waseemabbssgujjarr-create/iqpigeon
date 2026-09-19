@@ -17,7 +17,7 @@ const CI_BLOCKED_FACT_KEYS = [
 
 const CI_INTENTS = [
     'GREETING', 'PRODUCT_SEARCH', 'PRODUCT_AVAILABILITY', 'PRICE_INQUIRY', 'PRODUCT_COMPARISON',
-    'ORDER_REQUEST', 'BOOKING_REQUEST', 'PAYMENT_REQUEST', 'DELIVERY_QUERY', 'RETURN_REQUEST',
+    'ORDER_REQUEST', 'BOOKING_REQUEST', 'EVENT_INVITATION', 'PAYMENT_REQUEST', 'DELIVERY_QUERY', 'RETURN_REQUEST',
     'COMPLAINT', 'SUPPORT', 'GENERAL_INFORMATION', 'NEGOTIATION', 'DISCOUNT_REQUEST',
     'FOLLOW_UP', 'CANCELLATION', 'CONFIRMATION', 'REJECTION', 'ACCEPTANCE', 'HUMAN_REQUEST',
     'UNKNOWN', 'MENU', 'CART',
@@ -36,7 +36,9 @@ const CI_STRATEGIES = [
 function conversation_intelligence_ensure_schema(): void
 {
     static $done = false;
-    if ($done) {
+    if ($done || !empty($GLOBALS['P2E_LIVE_ISOLATED']) || !empty($GLOBALS['P2E_BASELINE_FIXTURE'])) {
+        $done = true;
+
         return;
     }
 
@@ -224,6 +226,9 @@ function conversation_intelligence_latest_intent_wins(array $intents): array
     }
     $last = $intents[count($intents) - 1];
     if ($primary && ($last['intent'] ?? '') !== '' && ($last['intent'] ?? '') !== ($primary['intent'] ?? '')) {
+        if (in_array((string) ($last['role'] ?? ''), ['dependent', 'secondary'], true)) {
+            return $intents;
+        }
         foreach ($intents as &$row) {
             if (($row['intent'] ?? '') === ($last['intent'] ?? '')) {
                 $row['role'] = 'primary';
@@ -334,7 +339,7 @@ function conversation_intelligence_detect_emotion(string $text): string
     ) {
         return 'frustration';
     }
-    if (preg_match('/\b(urgent|asap|right now|immediately|today only|jaldi|abhi)\b/u', $lower)) {
+    if (preg_match('/\b(urgent(?:ly)?|asap|right now|immediately|today only|jaldi|abhi)\b/u', $lower)) {
         return 'urgency';
     }
     if (preg_match('/\b(maybe|not sure|i think|perhaps|might|soch raha|dekhte hain)\b/u', $lower)) {
@@ -432,7 +437,7 @@ function conversation_intelligence_extract_entities(string $text, array $prior =
         $entities['date'] = $m[1];
     }
 
-    if (preg_match('/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/u', $lower, $m)) {
+    if (preg_match('/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)|morning|afternoon|evening|noon)\b/u', $lower, $m)) {
         $entities['time'] = $m[1];
     }
 
@@ -519,6 +524,94 @@ function conversation_intelligence_resolve_references(string $text, array $entit
 }
 
 /**
+ * General pricing/rate list — customer wants business-wide prices, not one SKU.
+ */
+function conversation_intelligence_is_general_price_list(string $text): bool
+{
+    $lower = mb_strtolower(trim($text));
+    if ($lower === '') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/\b('
+        . 'what are your (?:prices?|rates?|fees?|charges?|packages?|plans?)'
+        . '|what(?:\'?s| is| are) your (?:price|prices|rate|rates|fee|fees|pricing|cost|costs)'
+        . '|your (?:prices?|rates?|fees?|pricing|packages?|plans?)'
+        . '|how much do you charge'
+        . '|what do you charge(?: for)?'
+        . '|price list|rate list|pricing info'
+        . '|how much is (?:your|the) (?:service|consultation|coaching|package|plan)'
+        . '|how much is (?:coaching|consultation|therapy|service|session)\b'
+        . ')\b/u',
+        $lower
+    ) || (bool) preg_match('/^(?:price|rates?|pricing)(?:\s+please)?[?.!]*$/u', $lower);
+}
+
+/**
+ * Structured price-inquiry detection — semantic signals, not a flat regex list.
+ *
+ * @return array{match: bool, score: int, signals: list<string>}
+ */
+function conversation_intelligence_price_inquiry_signals(string $text): array
+{
+    $lower = mb_strtolower(trim($text));
+    if ($lower === '') {
+        return ['match' => false, 'score' => 0, 'signals' => []];
+    }
+
+    $score = 0;
+    $signals = [];
+
+    if (preg_match('/^how much\??$/u', $lower)) {
+        return ['match' => true, 'score' => 4, 'signals' => ['bare_how_much']];
+    }
+
+    if (conversation_intelligence_is_general_price_list($text)) {
+        return ['match' => true, 'score' => 4, 'signals' => ['general_price_list']];
+    }
+
+    $moneyQuestion = '/\b('
+        . 'how much (?:is|are|does|do|would|will|can)'
+        . '|how much\b'
+        . '|what(?:\'?s| is| are) the (?:price|cost|rate|fee|charge)'
+        . '|what(?:\'?s| is| are) (?:the )?(?:price|cost|rate|fee)'
+        . '|can you tell me the (?:price|cost|rate|fee)'
+        . '|tell me the (?:price|cost|rate|fee)'
+        . '|what do you charge'
+        . '|how much do you charge'
+        . '|how much does (?:this|it|that) cost'
+        . '|kitne|kitna|kitni'
+        . ')\b/u';
+    if (preg_match($moneyQuestion, $lower)) {
+        $score += 3;
+        $signals[] = 'money_question';
+    }
+
+    $pricingLexeme = '/\b(prices?|costs?|rates?|fees?|charges?|pricing|tariff|kitne|kitna|kitni)\b/u';
+    $hasLexeme = (bool) preg_match($pricingLexeme, $lower);
+    if ($hasLexeme) {
+        if (preg_match('/\?|^(?:what|how|tell|can)\b/u', $lower)
+            || preg_match('/\b(what|how|your|the|this|that|please|tell me|can you)\b/u', $lower)
+        ) {
+            $score += 2;
+            $signals[] = 'pricing_lexeme_question';
+        }
+    }
+
+    if (preg_match('/\b(too expensive|kam karo|discount|cheaper)\b/u', $lower)) {
+        $score = max(0, $score - 1);
+    }
+
+    return ['match' => $score >= 2, 'score' => $score, 'signals' => $signals];
+}
+
+function conversation_intelligence_is_price_inquiry(string $text): bool
+{
+    return conversation_intelligence_price_inquiry_signals($text)['match'];
+}
+
+/**
  * @return list<array{intent: string, role: string, confidence: float}>
  */
 function conversation_intelligence_extract_intents(string $text, array $state = []): array
@@ -563,8 +656,8 @@ function conversation_intelligence_extract_intents(string $text, array $state = 
         $add('FOLLOW_UP', 'primary', 0.88);
     }
 
-    if (preg_match('/\b(how much|price|cost|kitne|kitna|rate|charges?)\b/u', $lower)) {
-        $add('PRICE_INQUIRY', 'primary', 0.9);
+    if (conversation_intelligence_is_price_inquiry($text)) {
+        $add('PRICE_INQUIRY', 'primary', 0.92);
     }
     if (preg_match('/\b(in stock|available|do you have|have this|milta|available hai|hai kya)\b/u', $lower)) {
         $add('PRODUCT_AVAILABILITY', 'primary', 0.88);
@@ -572,16 +665,37 @@ function conversation_intelligence_extract_intents(string $text, array $state = 
     if (preg_match('/\b(compare|vs|versus|difference|cheaper|better one)\b/u', $lower)) {
         $add('PRODUCT_COMPARISON', 'primary', 0.85);
     }
-    if (preg_match('/\b(show me|looking for|i want|i need|mujhe chahiye|search)\b/u', $lower)) {
+    if (preg_match('/\b(show me|looking for|i want|i need|mujhe chahiye|search)\b/u', $lower)
+        && !preg_match('/\b(refund|return|exchange|cancel|support|help with|complaint|issue|problem)\b/u', $lower)
+    ) {
         $add('PRODUCT_SEARCH', $found === [] ? 'primary' : 'secondary', 0.7);
     }
-    if (preg_match('/\b(order|buy|purchase|add to cart|place order)\b/u', $lower)) {
+    if (preg_match('/\b(cancel(?:led|lation)?(?:\s+(?:the |this |my )?order)?|forget (?:the |this )?order)\b/u', $lower)) {
+        $add('CANCELLATION', 'primary', 0.91);
+    }
+    if (preg_match('/\b(order|buy|purchase|add to cart|place order)\b/u', $lower)
+        && !preg_match('/\b(refund|return|forget (?:the |this )?order|cancel(?:led|lation)?(?:\s+(?:the |this |my )?order)?|want to cancel)\b/u', $lower)
+    ) {
         $add('ORDER_REQUEST', 'primary', 0.86);
     }
-    if (preg_match('/\b(book|booking|appointment|reserve|reservation)\b/u', $lower)) {
+    if (preg_match(
+        '/\b(invite|invitation|guest speaker|speaking engagement|(?:your )?(?:ceo|founder|director|speaker|principal|representative))\b/u',
+        $lower
+    ) && preg_match(
+        '/\b(speak|talk|event|conference|workshop|seminar|gala|summit|our (?:event|conference|summit))\b/u',
+        $lower
+    )) {
+        $add('EVENT_INVITATION', 'primary', 0.91);
+    }
+    if (preg_match('/\b(book|booking|appointment|reserve|reservation)\b/u', $lower)
+        && !in_array('EVENT_INVITATION', array_column($found, 'intent'), true)
+    ) {
         $add('BOOKING_REQUEST', 'primary', 0.86);
     }
-    if (preg_match('/\b(pay|payment|invoice|card|jazzcash|easypaisa|cod|cash on delivery)\b/u', $lower)) {
+    if (preg_match('/\b(payment failed|payment didn\'?t go through|transaction failed|card declined|duplicate charge|charged twice|double charge)\b/u', $lower)) {
+        $add('PAYMENT_REQUEST', 'primary', 0.9);
+        $add('SUPPORT', 'secondary', 0.85);
+    } elseif (preg_match('/\b(pay|payment|invoice|card|jazzcash|easypaisa|cod|cash on delivery)\b/u', $lower)) {
         $add('PAYMENT_REQUEST', 'secondary', 0.8);
     }
     if (preg_match('/\b(deliver|delivery|shipping|tracking|where is my)\b/u', $lower)) {
@@ -660,12 +774,17 @@ function conversation_intelligence_score_ambiguity(array $intents, array $entiti
     $confidence = 0.75;
 
     $shopIntents = ['PRODUCT_SEARCH', 'PRODUCT_AVAILABILITY', 'PRICE_INQUIRY', 'ORDER_REQUEST', 'PRODUCT_COMPARISON'];
-    if (in_array($primary, $shopIntents, true) && empty($entities['product']) && trim((string) ($state['last_product'] ?? '')) === '') {
+    $generalPrice = conversation_intelligence_is_general_price_list($text);
+    if (in_array($primary, $shopIntents, true) && empty($entities['product']) && trim((string) ($state['last_product'] ?? '')) === ''
+        && !($primary === 'PRICE_INQUIRY' && $generalPrice)
+    ) {
         $missing[] = 'product';
         $ambiguity += 0.35;
         $confidence -= 0.25;
     }
-    if ($primary === 'PRICE_INQUIRY' && empty($entities['product']) && trim((string) ($state['last_product'] ?? '')) === '') {
+    if ($primary === 'PRICE_INQUIRY' && empty($entities['product']) && trim((string) ($state['last_product'] ?? '')) === ''
+        && !conversation_intelligence_is_general_price_list($text)
+    ) {
         $missing[] = 'which_item';
         $ambiguity += 0.15;
     }

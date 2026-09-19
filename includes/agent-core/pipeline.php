@@ -29,6 +29,8 @@
  */
 declare(strict_types=1);
 
+require_once __DIR__ . '/booking-state.php';
+
 /**
  * @return list<string>
  */
@@ -108,6 +110,11 @@ function agent_core_pipeline(array $ctx): array
     }
 
     $conv = agent_core_stage_memory($turn, $conv);
+    $intelligence = agent_core_intelligence_for_turn($turn, $conv);
+    agent_core_observe('CORE_INTELLIGENCE', array_merge(
+        agent_core_observe_decision_bits($intelligence, []),
+        ['ok' => trim((string) ($intelligence['primary_intent'] ?? '')) !== '' || trim((string) ($turn['text'] ?? '')) === '']
+    ));
     $pack = agent_core_stage_knowledge($turn);
     $intent = agent_core_stage_intent($turn, $conv);
     $intentBits = agent_core_observe_intent_bits($intent);
@@ -143,18 +150,22 @@ function agent_core_pipeline(array $ctx): array
         return $fail('missing_source', false, $intent);
     }
 
-    $plan = agent_core_stage_plan($turn, $conv, $intent, $source, $pack);
+    $plan = agent_core_stage_plan($turn, $conv, $intent, $source, $pack, $intelligence);
     $selected = [];
     foreach (is_array($plan['tool_calls'] ?? null) ? $plan['tool_calls'] : [] as $call) {
         $selected[] = (string) ($call['name'] ?? '');
     }
     $planType = (string) ($plan['answer_kind'] ?? '');
-    agent_core_observe('CORE_PLAN', array_merge(agent_core_observe_intent_bits($intent), [
-        'ok'             => $planType !== '',
-        'plan_type'      => $planType,
-        'source_route'   => $sourcePrimary,
-        'selected_tools' => $selected,
-    ]));
+    agent_core_observe('CORE_PLAN', array_merge(
+        agent_core_observe_intent_bits($intent),
+        agent_core_observe_decision_bits($intelligence, $plan),
+        [
+            'ok'             => $planType !== '',
+            'plan_type'      => $planType,
+            'source_route'   => $sourcePrimary,
+            'selected_tools' => $selected,
+        ]
+    ));
     if (agent_core_intent_is_live_world($intent) && in_array('live_web.search', $selected, true)) {
         agent_core_observe('LIVE_WORLD_TOOL_SELECTED', [
             'ok'             => true,
@@ -167,6 +178,7 @@ function agent_core_pipeline(array $ctx): array
     }
 
     $toolResults = agent_core_stage_tools($plan, $turn, $conv, $intent);
+    $plan = agent_booking_post_tools($plan, $toolResults, $turn, $conv);
     $toolStatuses = [];
     foreach ($toolResults as $row) {
         $toolStatuses[] = [
@@ -222,7 +234,7 @@ function agent_core_pipeline(array $ctx): array
 
         return $fail($err, false, $intent, $plan, $toolResults);
     }
-    $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
+    $check = agent_core_stage_validate($draft, $turn, $intent, $plan, $conv);
     if (empty($check['ok'])) {
         if (agent_core_intent_is_live_world($intent)) {
             agent_core_observe('CORE_VALIDATE', [
@@ -248,7 +260,7 @@ function agent_core_pipeline(array $ctx): array
 
             return $fail($err, false, $intent, $plan, $toolResults);
         }
-        $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
+        $check = agent_core_stage_validate($draft, $turn, $intent, $plan, $conv);
         if (empty($check['ok'])) {
             agent_core_observe('CORE_VALIDATE', [
                 'ok'         => false,
@@ -263,7 +275,7 @@ function agent_core_pipeline(array $ctx): array
     if ($draft === '') {
         return $fail('empty_humanize', false, $intent, $plan, $toolResults);
     }
-    $check = agent_core_stage_validate($draft, $turn, $intent, $plan);
+    $check = agent_core_stage_validate($draft, $turn, $intent, $plan, $conv);
     agent_core_observe('CORE_VALIDATE', [
         'ok'         => !empty($check['ok']),
         'validation' => !empty($check['ok']) ? 'ok' : 'failed',
@@ -436,11 +448,18 @@ function agent_core_stage_sources(array $turn, array $conv, array $intent): arra
  * @param array<string, mixed> $intent
  * @param array<string, mixed> $source
  * @param array<string, mixed> $pack
+ * @param array<string, mixed> $intelligence
  * @return array<string, mixed>
  */
-function agent_core_stage_plan(array $turn, array $conv, array $intent, array $source, array $pack): array
-{
-    return agent_core_plan($turn, $conv, $intent, $source, $pack);
+function agent_core_stage_plan(
+    array $turn,
+    array $conv,
+    array $intent,
+    array $source,
+    array $pack,
+    array $intelligence = []
+): array {
+    return agent_core_plan($turn, $conv, $intent, $source, $pack, $intelligence);
 }
 
 /**
@@ -458,6 +477,7 @@ function agent_core_stage_tools(array $plan, array $turn, array $conv, array $in
         $thread .= ' ' . (string) ($row['message'] ?? '');
     }
     $turn['thread'] = trim($thread);
+    $turn['allow_mutating_tools'] = !empty($plan['allow_mutating_tools']);
     $liveWorld = agent_core_intent_is_live_world($intent);
     foreach (is_array($plan['tool_calls'] ?? null) ? $plan['tool_calls'] : [] as $call) {
         $name = (string) ($call['name'] ?? '');
@@ -512,11 +532,12 @@ function agent_core_stage_generate(array $pack, array $plan, array $toolResults,
  * @param array<string, mixed> $turn
  * @param array<string, mixed> $intent
  * @param array<string, mixed> $plan
+ * @param array<string, mixed> $conv
  * @return array{ok: bool, reason?: string}
  */
-function agent_core_stage_validate(string $draft, array $turn, array $intent, array $plan): array
+function agent_core_stage_validate(string $draft, array $turn, array $intent, array $plan, array $conv = []): array
 {
-    return agent_core_validate($draft, $turn, $intent, $plan);
+    return agent_core_validate($draft, $turn, $intent, $plan, $conv);
 }
 
 /**

@@ -18,10 +18,13 @@ define('OPENAI_SSL_VERIFY', false);  // cPanel shared hosting often needs false
 // STRIPE
 define('STRIPE_SECRET_KEY', 'sk_test_...');
 define('STRIPE_WEBHOOK_SECRET', 'whsec_...');
-define('STRIPE_PRICE_STARTER', 'price_...');
-define('STRIPE_PRICE_PRO', 'price_...');      // $30/mo Pro plan
-define('STRIPE_PRICE_GROWTH', 'price_...');   // legacy alias — point to Pro price in Stripe
-define('STRIPE_PRICE_AGENCY', 'price_...');
+define('STRIPE_PRICE_BASIC', '');            // required for $8 Basic checkout (price_xxx)
+define('STRIPE_PRICE_STARTER_29', '');       // required for $29 Starter checkout (price_xxx)
+define('STRIPE_PRICE_GROWTH', '');           // required for $79 Growth checkout (price_xxx)
+define('STRIPE_PRICE_BUSINESS', '');         // required for $149 Business checkout (price_xxx)
+define('STRIPE_PRICE_STARTER', '');          // legacy unused — do not reuse for Starter $29
+define('STRIPE_PRICE_PRO', '');              // legacy unused — do not reuse for Growth
+define('STRIPE_PRICE_AGENCY', '');           // unused — Enterprise is sales/custom
 
 // PAYPAK — Pakistan billing (JazzCash, Easypaisa, PayPak cards, banks via PayFast gateway)
 // Sign up at https://gopayfast.com — use sandbox credentials for testing
@@ -36,8 +39,11 @@ define('PAYPAK_LIVE_API_URL', 'https://ipg.apps.net.pk/Ecommerce/api/Transaction
 define('PAYPAK_LIVE_CHECKOUT_URL', 'https://ipg.apps.net.pk/Ecommerce/api/Checkout');
 
 // Plan display amounts — PKR for Pakistan IP, USD elsewhere
-define('PLAN_PRICE_STARTER_PKR', 1440);
-define('PLAN_PRICE_PRO_PKR', 9000);
+define('PLAN_PRICE_BASIC_PKR', 1440);
+define('PLAN_PRICE_STARTER_PKR', 5220);
+define('PLAN_PRICE_GROWTH_PKR', 14220);
+define('PLAN_PRICE_BUSINESS_PKR', 26820);
+define('PLAN_PRICE_PRO_PKR', 14220);
 
 // META / WHATSAPP Embedded Signup
 define('META_APP_ID', '2227351001435841');
@@ -69,7 +75,10 @@ define('TEST_CLIENT_PASSWORD', '');
 // Admin portal at /admin/login.php (not linked publicly). Set a long random string:
 define('ADMIN_ACCESS_KEY', '');
 
-define('REQUIRE_EMAIL_VERIFICATION', true);
+// This flag is temporarily disabled during development/testing. Re-enable for production.
+define('EMAIL_VERIFICATION_REQUIRED', false);
+/** @deprecated Use EMAIL_VERIFICATION_REQUIRED — kept for older config.php files */
+define('REQUIRE_EMAIL_VERIFICATION', EMAIL_VERIFICATION_REQUIRED);
 define('EMAIL_VERIFY_EXPIRY_MINUTES', 30);
 define('REMEMBER_ME_DAYS', 30);
 
@@ -81,6 +90,8 @@ define('SMTP_USER', 'info@iqpigeon.com');
 define('SMTP_PASS', 'your_smtp_password');
 define('SMTP_FROM', 'info@iqpigeon.com');
 define('SMTP_FROM_NAME', 'IQ Pigeon');
+// auto | smtp | exim — on cPanel with localhost:587 closed, use auto or exim
+define('MAIL_TRANSPORT', 'auto');
 
 define('DEMO_BOT_ID', 0);
 define('WHATSAPP_MANUAL_MODE', false);  // true = manual Phone ID + token only
@@ -94,10 +105,27 @@ define('TURN_MEDIA_DEBOUNCE_MS', 7000);
 define('TURN_MAX_WINDOW_MS', 30000);
 define('HUMAN_AGENT_PURE_MODE', true);
 
-// Agent Core (WhatsApp / channel compose). Default OFF. Empty BOT_IDS = nobody.
-// 12-stage pipeline orchestrates conversation_mind_generate; webhook_mind remains fallback while OFF.
-// wa_skip_openai (set by send_leads_now) skips the old human_openai layer, not mind generate.
-// To opt in a NON-production test bot later: ENABLED true AND comma-separated ids (never 57 until authorized).
+// Agent Core (WhatsApp / Widget / Test & Publish). Default OFF = kill switch only.
+define('BBD_ENABLED', true);
+
+// BBD Personal State Engine + Human Core (staging — set in config.local.php only, never global response on production)
+// define('BBD_PSE_ENABLED', false);
+// define('BBD_PSE_DUAL_WRITE', 1);
+// define('BBD_STATE_TRACE', 1);
+// define('BBD_HUMAN_CORE_RESPONSE_ENABLED', 1);
+// Live Hisab context loop (save + reply from world) uses Admin → Integrations OpenAI chat key.
+// No extra BBD key. Semantic AI is on by default when that dashboard key is present.
+// define('BBD_PSE_SEMANTIC_AI', 1);
+// Human Core reply authority applies ONLY to this connection (phone_number_id + user_id gate in code):
+// define('BBD_HUMAN_CORE_STAGING_PHONE_NUMBER_ID', '758204950452103');
+// define('BBD_HUMAN_CORE_STAGING_USER_ID', 3);
+// Phase 6 proactive scan — staging only. Default off. Never enable on production until staging story is green.
+// define('BBD_MUNSHI_PROACTIVE_ENABLED', false);
+define('BBD_PLAN_PRICE_PKR', 999);
+// Optional — verification links and OAuth return base when not on bbd.* subdomain
+define('BBD_URL', 'https://bbd.iqpigeon.com');
+// Agent Core master kill switch. When true, every eligible active bot uses Core automatically.
+// AGENT_CORE_BOT_IDS is deprecated/ignored (kept for older config.local.php compatibility).
 define('AGENT_CORE_ENABLED', false);
 define('AGENT_CORE_BOT_IDS', '');
 

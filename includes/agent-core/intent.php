@@ -134,9 +134,13 @@ function agent_core_intent_signals(array $turnCtx, array $conv, string $msg, arr
         'mixed'            => $mixed,
         'needs_hours'      => !empty($source['needs_hours']),
         'booking'          => (bool) preg_match(
-            '/\b(book me|book (a |an )?(table|slot|appointment|call)|appointment|reserve|reservation|tomorrow at|at \d{1,2}(:\d{2})?\s*(am|pm)?)\b/u',
+            '/\b(book me|book (a |an )?(table|slot|appointment|call|session)|appointment|reserve|reservation|tomorrow at|at \d{1,2}(:\d{2})?\s*(am|pm)?)\b/u',
             $msg
         ),
+        'event_invitation' => (bool) preg_match(
+            '/\b(invite|invitation|speaker|keynote|guest speaker|speak at|talk at|workshop|conference)\b/u',
+            $msg
+        ) && (bool) preg_match('/\b(waqar|mr\.?\s*waqar|event)\b/u', $msg),
         'follow_up'        => (bool) preg_match('/\b(the black one|the white one|that one|this one|the other one|those ones)\b/u', $msg)
             || (bool) preg_match('/\b(how much( is it)?|that one|the same)\b/u', $msg),
         'greeting'         => (bool) preg_match('/^(hi+|hello+|hey+|salam|assalam)/u', $msg) && mb_strlen($msg) < 28,
@@ -199,6 +203,15 @@ function agent_core_intent_apply_overrides(array $intent, array $signals, array 
         $intent['continue_thread'] = true;
         $intent['tools'] = [];
         $intent['override'] = 'CHASE_UP';
+
+        return $intent;
+    }
+
+    if (!empty($signals['event_invitation'])) {
+        $intent['kind'] = 'EVENT_INVITATION';
+        $intent['confidence'] = 0.9;
+        $intent['tools'] = [];
+        $intent['override'] = 'EVENT_INVITATION';
 
         return $intent;
     }

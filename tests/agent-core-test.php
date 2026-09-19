@@ -42,13 +42,104 @@ $intentSrc = file_get_contents($root . '/includes/agent-core/intent.php') ?: '';
 $pipelineSrc = file_get_contents($root . '/includes/agent-core/pipeline.php') ?: '';
 $channelSrc = file_get_contents($root . '/includes/agent-core/channel.php') ?: '';
 $botChatSrc = file_get_contents($root . '/api/bot-chat.php') ?: '';
+$aiRespondSrc = file_get_contents($root . '/api/ai-respond.php') ?: '';
+$chatWidgetSrc = file_get_contents($root . '/api/chat-widget.php') ?: '';
 
 ac_assert(defined('AGENT_CORE_ENABLED') && AGENT_CORE_ENABLED === false, 'master flag default false');
-ac_assert(agent_core_bot_ids() === [], 'allow-list empty by default');
-ac_assert(!in_array(57, agent_core_bot_ids(), true), 'production bot 57 is not in the allow-list');
-ac_assert(agent_core_enabled(['id' => 57]) === false, 'bot 57 is not enabled');
-ac_assert(agent_core_enabled(['id' => 1]) === false, 'unlisted bot is not enabled');
-ac_assert(agent_core_enabled(['id' => 0]) === false, 'id 0 is not enabled');
+ac_assert(agent_core_bot_ids() === [], 'deprecated allow-list helper is always empty');
+ac_assert(agent_core_enabled(['id' => 57, 'is_active' => 1]) === false, 'ELIG-1 master OFF → Core disabled');
+ac_assert(agent_core_enabled(['id' => 1, 'is_active' => 1]) === false, 'ELIG-2 master OFF → active bot still disabled');
+ac_assert(agent_core_enabled(['id' => 0]) === false, 'ELIG-3 id 0 is not enabled');
+ac_assert(
+    agent_core_bot_eligible(['id' => 99, 'is_active' => 1], 'whatsapp') === true
+    && agent_core_bot_eligible(['id' => 99, 'is_active' => 1], 'widget') === true
+    && agent_core_bot_eligible(['id' => 99, 'is_active' => 1], 'bot-chat') === true,
+    'ELIG-4 active bot is channel-eligible without bot-ID allow-list'
+);
+ac_assert(
+    agent_core_bot_eligible(['id' => 99, 'is_active' => 0], 'whatsapp') === false,
+    'ELIG-5 inactive bot is not channel-eligible'
+);
+ac_assert(
+    agent_core_bot_eligible(['id' => 12, 'is_active' => 1, 'widget_enabled' => 0], 'widget') === false
+    && agent_core_bot_eligible(['id' => 12, 'is_active' => 1, 'widget_enabled' => 1], 'widget') === true,
+    'ELIG-6 widget channel requires widget_enabled when the flag is present'
+);
+ac_assert(
+    agent_core_bot_eligible(['id' => 12, 'is_active' => 1, 'whatsapp_auto_reply' => 0], 'whatsapp') === false
+    && agent_core_bot_eligible(['id' => 12, 'is_active' => 1, 'whatsapp_auto_reply' => 1], 'whatsapp') === true,
+    'ELIG-7 whatsapp channel requires whatsapp_auto_reply when the flag is present'
+);
+ac_assert(
+    str_contains($bootSrc, 'function agent_core_bot_eligible')
+    && str_contains($bootSrc, 'AGENT_CORE_BOT_IDS is ignored')
+    && !str_contains($bootSrc, 'AGENT_CORE_STAGING_BOT_IDS')
+    && !str_contains($bootSrc, 'agent_core_staging_bot_ids'),
+    'ELIG-8 bootstrap uses master flag + eligibility only; no staging allow-list'
+);
+ac_assert(
+    agent_core_bot_ids() === []
+    && !preg_match('/function agent_core_enabled[\s\S]*AGENT_CORE_BOT_IDS/', $bootSrc),
+    'ELIG-9 deprecated AGENT_CORE_BOT_IDS does not gate runtime'
+);
+
+$activeWaBot = ['id' => 9001, 'is_active' => 1, 'whatsapp_auto_reply' => 1, 'widget_enabled' => 0, 'name' => 'Test WA'];
+$activeWiBot = ['id' => 9001, 'is_active' => 1, 'whatsapp_auto_reply' => 0, 'widget_enabled' => 1, 'name' => 'Test WI'];
+
+$GLOBALS['agent_core_enabled_override'] = true;
+ac_assert(
+    agent_core_enabled($activeWaBot, 'whatsapp') === true,
+    'ELIG-10 master ON + active WhatsApp bot → Core enabled'
+);
+ac_assert(
+    agent_core_enabled(['id' => 9001, 'is_active' => 0, 'whatsapp_auto_reply' => 1], 'whatsapp') === false,
+    'ELIG-11 master ON + inactive bot → Core disabled'
+);
+ac_assert(
+    agent_core_enabled($activeWiBot, 'widget') === true
+    && agent_core_enabled(['id' => 9001, 'is_active' => 1, 'widget_enabled' => 0], 'widget') === false
+    && agent_core_enabled(['id' => 9001, 'is_active' => 1], 'bot-chat') === true,
+    'ELIG-12 master ON + widget/bot-chat channel rules apply'
+);
+unset($GLOBALS['agent_core_enabled_override']);
+
+ac_assert(
+    str_contains($channelSrc, 'agent_core_enabled($bot, $channel)')
+    && str_contains($channelSrc, 'function agent_core_channel_off_reason')
+    && agent_core_enabled(['id' => 8888, 'is_active' => 1, 'whatsapp_auto_reply' => 1], 'whatsapp') === false,
+    'ELIG-13 channel gate blocks Core when master OFF'
+);
+
+$GLOBALS['agent_core_enabled_override'] = true;
+$inactiveChannelTry = agent_core_channel_try(
+    ['id' => 808, 'is_active' => 0, 'whatsapp_auto_reply' => 1],
+    0,
+    'hi',
+    0,
+    'whatsapp'
+);
+ac_assert(
+    ($inactiveChannelTry['path'] ?? '') === 'core_off'
+    && ($inactiveChannelTry['fallback_reason'] ?? '') === 'inactive',
+    'ELIG-14 master ON + inactive bot → fallback_reason inactive'
+);
+unset($GLOBALS['agent_core_enabled_override']);
+
+foreach ([
+    'intelligence.php',
+    'decision.php',
+    'capabilities.php',
+    'outcome.php',
+    'nba.php',
+    'cta.php',
+    'multi-intent.php',
+    'action-verification.php',
+    'booking-state.php',
+    'booking-tools.php',
+    'handoff-tools.php',
+] as $mindModule) {
+    ac_assert(str_contains($runSrc, $mindModule), 'ELIG-15 Agent Mind module loaded: ' . $mindModule);
+}
 
 ac_assert(
     wa_recover_diagnostic_hold_turn_ids() === [720, 635, 321, 306, 302, 134],
@@ -58,7 +149,7 @@ ac_assert(
 ac_assert(
     str_contains($coreSrc, "'path' => 'webhook_mind'")
     && str_contains($coreSrc, 'wa_webhook_mind_reply($bot, $leadId, $userMessage)')
-    && str_contains($coreSrc, 'agent_core_enabled($bot)')
+    && str_contains($coreSrc, "agent_core_enabled(\$bot, 'whatsapp')")
     && str_contains($coreSrc, "'path' => 'agent_core'")
     && str_contains($coreSrc, 'agent_core_result_usable($core)'),
     'budget compose still has webhook_mind and an agent_core fork'
@@ -139,9 +230,12 @@ ac_assert(
     str_contains($composeSrc, 'conversation_mind_generate')
     && !str_contains($composeSrc, 'ai_chat(')
     && str_contains($composeSrc, 'function agent_core_canonical_offer_draft')
+    && str_contains($composeSrc, 'function agent_core_canonical_location_draft')
     && str_contains($composeSrc, 'knowledge_message_is_offer_question')
+    && str_contains($composeSrc, 'conversation_is_location_question')
     && str_contains($composeSrc, 'knowledge_offer_list_reply')
     && str_contains($composeSrc, 'agent_core_canonical_offer_draft($bot, $userMessage)')
+    && str_contains($composeSrc, 'agent_core_canonical_location_draft($bot, $userMessage)')
     && str_contains($validateSrc, "in_array(\$reason, ['marketing_dump', 'truncated'], true)")
     && !str_contains($budgetComposeSrc, 'knowledge_offer_list_reply')
     && !str_contains($budgetComposeSrc, 'knowledge_message_is_offer_question'),
@@ -375,12 +469,10 @@ ac_assert(
 
 $emptyCore = agent_core_run($petrolCtx);
 ac_assert(
-    empty($emptyCore['ok'])
-    && trim((string) ($emptyCore['reply'] ?? '')) === ''
-    && ($emptyCore['error'] ?? '') === 'empty_compose'
-    && ($emptyCore['fallback_reason'] ?? '') === 'empty_generate'
-    && ac_compose_path($emptyCore) === 'webhook_mind',
-    'empty Core result → webhook_mind fallback'
+    !empty($emptyCore['ok'])
+    && str_contains(mb_strtolower((string) ($emptyCore['reply'] ?? '')), "couldn't verify")
+    && ac_compose_path($emptyCore) === 'agent_core',
+    'LIVE_WORLD without evidence returns transparent unverified reply, not webhook_mind stale GPT'
 );
 
 $GLOBALS['agent_core_test_draft'] = 'Reply with a number from our menu';
@@ -435,8 +527,12 @@ ac_assert(
     && str_contains($pipelineSrc, 'function agent_core_pipeline')
     && str_contains($runSrc, 'agent_core_pipeline($ctx)')
     && str_contains($channelSrc, 'function agent_core_channel_try')
-    && str_contains($botChatSrc, 'agent_core_channel_try($bot, 0, $message, 0, \'bot-chat\')'),
-    '12-stage pipeline exists; bot-chat is an adapter around Core'
+    && str_contains($botChatSrc, 'agent_core_channel_try($bot, 0, $message, 0, \'bot-chat\')')
+    && str_contains($aiRespondSrc, 'agent_core_channel_try')
+    && str_contains($aiRespondSrc, 'agent_core_enabled($bot, $coreChannel)')
+    && str_contains($chatWidgetSrc, "'channel' => 'widget'")
+    && !str_contains($chatWidgetSrc, 'human_agent_pause('),
+    '12-stage pipeline exists; bot-chat + widget adapters around Core'
 );
 
 $bizAsk = $baseCtx;
@@ -640,7 +736,11 @@ ac_assert(
 );
 
 ac_assert(ac_compose_path($threw) === 'webhook_mind', '15 Core failure → webhook_mind fallback');
-ac_assert(ac_compose_path($emptyCore) === 'webhook_mind', '16 empty generation → fallback');
+ac_assert(
+    !empty($emptyCore['ok'])
+    && str_contains(mb_strtolower((string) ($emptyCore['reply'] ?? '')), "couldn't verify"),
+    '16 LIVE_WORLD without evidence stays on agent_core with transparent fallback'
+);
 ac_assert(ac_compose_path($badVal) === 'webhook_mind', '17 validation failure → fallback');
 
 ac_assert(
@@ -650,10 +750,12 @@ ac_assert(
 );
 
 ac_assert(
-    agent_core_enabled(['id' => 57]) === false
-    && agent_core_enabled(['id' => 99]) === false
-    && agent_core_bot_ids() === [],
-    '19 allow-list isolation (empty list, bot 57 off)'
+    agent_core_enabled(['id' => 57, 'is_active' => 1]) === false
+    && agent_core_enabled(['id' => 99, 'is_active' => 1]) === false
+    && agent_core_bot_ids() === []
+    && agent_core_bot_eligible(['id' => 57, 'is_active' => 1], 'whatsapp') === true
+    && agent_core_bot_eligible(['id' => 99, 'is_active' => 1], 'widget') === true,
+    '19 master off disables all; active bots remain channel-eligible'
 );
 
 ac_assert(
@@ -696,6 +798,31 @@ function ac_sink_blob(): string
     return (string) json_encode($GLOBALS['agent_core_event_sink'] ?? [], JSON_UNESCAPED_UNICODE);
 }
 
+function ac_sink_last(string $event): array
+{
+    $last = [];
+    foreach ($GLOBALS['agent_core_event_sink'] ?? [] as $row) {
+        if ((string) ($row['event'] ?? '') === $event) {
+            $last = is_array($row['detail'] ?? null) ? $row['detail'] : [];
+        }
+    }
+
+    return $last;
+}
+
+function ac_live_observe_begin(): void
+{
+    $GLOBALS['agent_core_event_sink'] = [];
+    $GLOBALS['agent_core_observe'] = [
+        't0'       => microtime(true),
+        'turn_id'  => 0,
+        'lead_id'  => 112,
+        'bot_id'   => 53,
+        'channel'  => 'whatsapp',
+        'fallback' => false,
+    ];
+}
+
 $observeSrc = file_get_contents($root . '/includes/agent-core/observe.php') ?: '';
 $engineNow = file_get_contents($root . '/includes/conversation-turn-engine.php') ?: '';
 
@@ -736,10 +863,11 @@ ac_assert(
 $GLOBALS['agent_core_event_sink'] = [];
 $emptyRun = agent_core_run($petrolCtx);
 ac_assert(
-    ($emptyRun['fallback_reason'] ?? '') === 'empty_generate'
+    !empty($emptyRun['ok'])
+    && str_contains(mb_strtolower((string) ($emptyRun['reply'] ?? '')), "couldn't verify")
     && in_array('CORE_GENERATE', ac_sink_names(), true)
-    && in_array('CORE_FALLBACK', ac_sink_names(), true),
-    '3 empty generation records fallback_reason=empty_generate'
+    && !in_array('CORE_FALLBACK', ac_sink_names(), true),
+    '3 LIVE_WORLD without evidence succeeds with transparent fallback (no empty_generate)'
 );
 
 $GLOBALS['agent_core_event_sink'] = [];
@@ -782,12 +910,12 @@ ac_assert(
     '6 LIVE_WORLD selection and tool events are recorded'
 );
 
-$offTry = agent_core_channel_try(['id' => 53], 0, 'hi', 0, 'whatsapp');
+$offTry = agent_core_channel_try(['id' => 53, 'is_active' => 1], 0, 'hi', 0, 'whatsapp');
 ac_assert(
     ($offTry['path'] ?? '') === 'core_off'
     && ($offTry['fallback_reason'] ?? '') === 'disabled'
     && ac_compose_path($offTry) === 'webhook_mind',
-    '7 Core fallback when disabled/not allowlisted stays webhook_mind'
+    '7 Core fallback when master flag disabled stays webhook_mind'
 );
 
 $GLOBALS['agent_core_event_sink'] = [];
@@ -822,7 +950,7 @@ ac_assert(
 ac_assert(
     AGENT_CORE_ENABLED === false
     && agent_core_bot_ids() === []
-    && agent_core_enabled(['id' => 53]) === false
+    && agent_core_enabled(['id' => 53, 'is_active' => 1]) === false
     && str_contains($bootSrc, "define('AGENT_CORE_ENABLED', false)"),
     '10 existing default-OFF behavior remains unchanged'
 );
@@ -863,6 +991,9 @@ ac_assert(
     && str_contains($eventsSlice, "'status' => 'error'")
     && str_contains($azSrc, 'LIVE_WORLD_DETECTED')
     && str_contains($azSrc, 'LIVE_WORLD_TOOL_FAILED')
+    && str_contains($azSrc, 'LIVE_ANSWER_START')
+    && str_contains($azSrc, 'LIVE_ANSWER_COMPLETE')
+    && str_contains($azSrc, 'LIVE_ANSWER_FALLBACK')
     && str_contains($azSrc, 'CORE_FALLBACK')
     && str_contains($azSrc, "'RESPONSE_SENT'")
     && str_contains($azSrc, "'PROCESSING_TO_RESPONSE'")
@@ -1164,6 +1295,358 @@ ac_assert(
     && !empty($livePetrolData['evidence_usable'])
     && (string) ($livePetrolData['evidence'] ?? '') === $petrolEvidence,
     'E web search not executed/unknown is unusable; completed preview_call and non-weather live facts still count'
+);
+
+require_once $root . '/includes/conversation-intelligence.php';
+$lahoreWeatherEvidence = 'Lahore weather is currently 33 C and partly cloudy this afternoon.';
+$weatherFlags = live_world_evidence_content_flags($lahoreWeatherEvidence);
+$weatherFlagSan = agent_core_observe_sanitize($weatherFlags + [
+    'evidence'              => $lahoreWeatherEvidence,
+    'prompt'                => 'secret-prompt',
+    'openai_call_ok'        => true,
+    'openai_call_empty'     => false,
+    'has_temperature_token' => true,
+]);
+ac_assert(
+    ($weatherFlags['has_lahore'] ?? false) === true
+    && ($weatherFlags['has_weather'] ?? false) === true
+    && ($weatherFlags['has_temperature_token'] ?? false) === true
+    && ($weatherFlags['looks_like_refusal'] ?? true) === false
+    && $lahoreWeatherEvidence === 'Lahore weather is currently 33 C and partly cloudy this afternoon.'
+    && (string) ($liveWeatherData['evidence'] ?? '') === $weatherEvidence
+    && !array_key_exists('evidence', $weatherFlagSan)
+    && !array_key_exists('prompt', $weatherFlagSan)
+    && ($weatherFlagSan['openai_call_ok'] ?? false) === true
+    && ($weatherFlagSan['has_temperature_token'] ?? false) === true
+    && !in_array($lahoreWeatherEvidence, $weatherFlags, true)
+    && !in_array($lahoreWeatherEvidence, $weatherFlagSan, true),
+    'LA-A usable Lahore/weather/temp evidence flags true; evidence stays full internally; metadata has no body'
+);
+
+$petrolFlags = live_world_evidence_content_flags($petrolEvidence);
+$petrolFlagSan = agent_core_observe_sanitize($petrolFlags + ['evidence' => $petrolEvidence]);
+ac_assert(
+    ($petrolFlags['has_lahore'] ?? true) === false
+    && ($petrolFlags['has_weather'] ?? true) === false
+    && ($petrolFlags['has_temperature_token'] ?? true) === false
+    && ($petrolFlags['looks_like_refusal'] ?? true) === false
+    && !empty($livePetrolData['evidence_usable'])
+    && (string) ($livePetrolData['evidence'] ?? '') === $petrolEvidence
+    && !array_key_exists('evidence', $petrolFlagSan)
+    && !in_array($petrolEvidence, $petrolFlagSan, true),
+    'LA-B generic live facts: location/weather/temp flags false; no evidence text leakage'
+);
+
+$refusalFlags = live_world_evidence_content_flags($refusalEvidence);
+ac_assert(
+    ($refusalFlags['looks_like_refusal'] ?? false) === true
+    && ($refusalFlags['has_lahore'] ?? false) === true
+    && ($refusalFlags['has_weather'] ?? false) === true
+    && ($refusalFlags['has_temperature_token'] ?? true) === false
+    && !empty($liveRefusalData['looks_like_refusal'])
+    && empty($liveRefusalData['evidence_usable'])
+    && (string) ($liveRefusalData['evidence'] ?? '') === ''
+    && $refusalLiveReply === conversation_mind_unverified_live_reply($restaurant)
+    && !in_array($refusalEvidence, $refusalFlags, true),
+    'LA-C refusal-shaped evidence: quality gate still unusable; metadata records looks_like_refusal'
+);
+
+ac_live_observe_begin();
+$GLOBALS['conversation_mind_test_live_openai'] = ['success' => true, 'content' => 'Lahore is about 33 C and partly cloudy.'];
+$shortLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
+    'needed'   => true,
+    'ok'       => true,
+    'evidence' => $weatherEvidence,
+]);
+$shortStart = ac_sink_last('LIVE_ANSWER_START');
+$shortComplete = ac_sink_last('LIVE_ANSWER_COMPLETE');
+$shortBlob = ac_sink_blob();
+ac_assert(
+    ($shortStart['evidence_truncated'] ?? true) === false
+    && ($shortComplete['evidence_truncated'] ?? true) === false
+    && ($shortStart['evidence_chars'] ?? 0) === mb_strlen($weatherEvidence)
+    && mb_strlen($weatherEvidence) < 1800
+    && $shortLive !== ''
+    && !str_contains($shortBlob, $weatherEvidence),
+    'LA-D evidence shorter than 1800: evidence_truncated=false'
+);
+
+$longEvidence = trim(str_repeat('Lahore weather is 33 C today. ', 80));
+ac_assert(mb_strlen($longEvidence) > 1800, 'long evidence fixture exceeds 1800');
+ac_live_observe_begin();
+$GLOBALS['conversation_mind_test_live_openai'] = ['success' => true, 'content' => 'It is hot in Lahore today.'];
+$longLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
+    'needed'   => true,
+    'ok'       => true,
+    'evidence' => $longEvidence,
+]);
+$longStart = ac_sink_last('LIVE_ANSWER_START');
+$longComplete = ac_sink_last('LIVE_ANSWER_COMPLETE');
+$longBlob = ac_sink_blob();
+ac_assert(
+    ($longStart['evidence_truncated'] ?? false) === true
+    && ($longComplete['evidence_truncated'] ?? false) === true
+    && ($longStart['evidence_chars'] ?? 0) === mb_strlen($longEvidence)
+    && $longLive !== ''
+    && !str_contains($longBlob, mb_substr($longEvidence, 0, 80))
+    && !str_contains($longBlob, $longEvidence),
+    'LA-E evidence longer than 1800: evidence_truncated=true'
+);
+
+ac_live_observe_begin();
+$openaiReply = 'Lahore is about 33 C and partly cloudy this afternoon.';
+$GLOBALS['conversation_mind_test_live_openai'] = ['success' => true, 'content' => $openaiReply];
+$usedLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
+    'needed'   => true,
+    'ok'       => true,
+    'evidence' => $weatherEvidence,
+]);
+$usedComplete = ac_sink_last('LIVE_ANSWER_COMPLETE');
+$usedBlob = ac_sink_blob();
+ac_assert(
+    $usedLive === $openaiReply
+    && in_array('LIVE_ANSWER_START', ac_sink_names(), true)
+    && in_array('LIVE_ANSWER_COMPLETE', ac_sink_names(), true)
+    && !in_array('LIVE_ANSWER_FALLBACK', ac_sink_names(), true)
+    && ($usedComplete['live_answer_used'] ?? false) === true
+    && ($usedComplete['live_answer_source'] ?? '') === 'openai'
+    && ($usedComplete['live_answer_chars'] ?? 0) === mb_strlen($openaiReply)
+    && ($usedComplete['openai_call_ok'] ?? false) === true
+    && ($usedComplete['openai_call_empty'] ?? true) === false
+    && ($usedComplete['has_lahore'] ?? false) === true
+    && ($usedComplete['bot_id'] ?? 0) === 53
+    && ($usedComplete['lead_id'] ?? 0) === 112
+    && ($usedComplete['channel'] ?? '') === 'whatsapp'
+    && !str_contains($usedBlob, $weatherEvidence)
+    && !str_contains($usedBlob, $openaiReply)
+    && !str_contains($usedBlob, 'weather ask'),
+    'LA-F nonempty live_answer: source=openai used=true chars recorded; no body leak'
+);
+
+$fallbackEvidence = str_repeat('Lahore weather is 33 C today. ', 20);
+$fallbackExpected = mb_substr(trim((string) preg_replace('/\s+/u', ' ', $fallbackEvidence)), 0, 280);
+ac_live_observe_begin();
+$GLOBALS['conversation_mind_test_live_openai'] = ['success' => false, 'content' => ''];
+$fbLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
+    'needed'   => true,
+    'ok'       => true,
+    'evidence' => $fallbackEvidence,
+]);
+$fbEvent = ac_sink_last('LIVE_ANSWER_FALLBACK');
+$fbBlob = ac_sink_blob();
+unset($GLOBALS['conversation_mind_test_live_openai']);
+ac_assert(
+    $fbLive === $fallbackExpected
+    && mb_strlen($fbLive) === 280
+    && in_array('LIVE_ANSWER_START', ac_sink_names(), true)
+    && in_array('LIVE_ANSWER_FALLBACK', ac_sink_names(), true)
+    && ($fbEvent['live_answer_used'] ?? true) === false
+    && ($fbEvent['live_answer_source'] ?? '') === 'evidence_fallback'
+    && ($fbEvent['live_answer_chars'] ?? 0) === 280
+    && ($fbEvent['openai_call_ok'] ?? true) === false
+    && ($fbEvent['openai_call_empty'] ?? false) === true
+    && !str_contains($fbBlob, $fallbackEvidence)
+    && !str_contains($fbBlob, mb_substr($fallbackEvidence, 0, 60)),
+    'LA-G empty live_answer: source=evidence_fallback used=false chars=fallback length'
+);
+
+ac_live_observe_begin();
+$noneLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
+    'needed'   => true,
+    'ok'       => false,
+    'evidence' => '',
+]);
+$noneEvent = ac_sink_last('LIVE_ANSWER_COMPLETE');
+$noneBlob = ac_sink_blob();
+ac_assert(
+    $noneLive === ''
+    && ($noneEvent['live_answer_source'] ?? '') === 'none'
+    && ($noneEvent['live_answer_used'] ?? true) === false
+    && ($noneEvent['live_answer_chars'] ?? -1) === 0
+    && ($noneEvent['evidence_chars'] ?? -1) === 0
+    && ($noneEvent['has_lahore'] ?? true) === false
+    && !str_contains($noneBlob, 'weather ask')
+    && !str_contains($noneBlob, $weatherEvidence)
+    && $emptyLiveReply === conversation_mind_unverified_live_reply($restaurant),
+    'LA-H no evidence: no leak; generate still uses unverified live reply'
+);
+
+// --- Automatic active-bot Core routing (global master OR staging allow-list) ---
+$activeWa = ['id' => 101, 'is_active' => 1, 'whatsapp_auto_reply' => 1, 'widget_enabled' => 0, 'name' => 'Biz A'];
+$activeWi = ['id' => 202, 'is_active' => 1, 'whatsapp_auto_reply' => 0, 'widget_enabled' => 1, 'name' => 'Biz B'];
+$inactive = ['id' => 303, 'is_active' => 0, 'whatsapp_auto_reply' => 1, 'widget_enabled' => 1, 'name' => 'Biz C'];
+ac_assert(
+    agent_core_bot_eligible($activeWa, 'whatsapp') === true
+    && agent_core_bot_eligible($activeWa, 'widget') === false
+    && agent_core_bot_eligible($activeWi, 'widget') === true
+    && agent_core_bot_eligible($activeWi, 'whatsapp') === false
+    && agent_core_bot_eligible($inactive, 'whatsapp') === false
+    && agent_core_bot_eligible($inactive, 'widget') === false,
+    'ROUTE-A active bot + matching channel eligible; wrong channel / inactive blocked'
+);
+
+ac_assert(
+    str_contains($aiRespondSrc, "agent_core_channel_try")
+    && str_contains($aiRespondSrc, '$coreChannel')
+    && str_contains($chatWidgetSrc, "'channel' => 'widget'")
+    && str_contains($coreSrc, "agent_core_channel_try(\$bot, \$leadId, \$userMessage, \$turnId, 'whatsapp')")
+    && str_contains($botChatSrc, "agent_core_channel_try(\$bot, 0, \$message, 0, 'bot-chat')")
+    && str_contains($runSrc, 'function agent_core_reply')
+    && str_contains($pipelineSrc, 'function agent_core_pipeline'),
+    'ROUTE-B Widget + WhatsApp + bot-chat enter the same Agent Core / Conversation Engine'
+);
+
+ac_assert(
+    str_contains($knowledgeSrc, 'build_runtime_bot_prompt($bot')
+    && str_contains($knowledgeSrc, 'conversation_mind_business_facts($bot)')
+    && !str_contains($knowledgeSrc, 'The Sicilian'),
+    'ROUTE-C knowledge pack is per-bot (no hard-coded business)'
+);
+
+ac_assert(
+    str_contains($bootSrc, 'Legacy AGENT_CORE_BOT_IDS is ignored')
+    && !str_contains($bootSrc, 'AGENT_CORE_STAGING_BOT_IDS')
+    && !preg_match('/function agent_core_enabled[\s\S]*AGENT_CORE_BOT_IDS/', $bootSrc),
+    'ROUTE-C2 AGENT_CORE_BOT_IDS deprecated; master flag + eligibility only'
+);
+
+$offerAsk = $baseCtx;
+$offerAsk['text'] = 'What do you offer?';
+$offerAsk['bot'] = ['id' => 404, 'is_active' => 1, 'name' => 'Custom Co', 'company_name' => 'Custom Co'];
+$offerIntent = agent_core_intent($offerAsk, $emptyConv);
+$weatherAsk = $baseCtx;
+$weatherAsk['text'] = 'What is the weather in Lahore today?';
+$weatherAsk['bot'] = ['id' => 505, 'is_active' => 1, 'name' => 'Any Biz', 'company_name' => 'Any Biz'];
+$weatherIntent = agent_core_intent($weatherAsk, $emptyConv);
+ac_assert(
+    ($offerIntent['kind'] ?? '') !== 'LIVE_WORLD'
+    && empty($offerIntent['needs_web'])
+    && (($weatherIntent['kind'] ?? '') === 'LIVE_WORLD' || ($weatherIntent['override'] ?? '') === 'LIVE_WORLD')
+    && !empty($weatherIntent['needs_web']),
+    'ROUTE-D business questions skip LIVE_WORLD; current-world questions can invoke it for any bot'
+);
+
+ac_assert(
+    str_contains($knowledgeSrc, 'function agent_core_knowledge_pack(array $bot)')
+    && str_contains($knowledgeSrc, 'build_runtime_bot_prompt($bot, $brand)')
+    && str_contains($knowledgeSrc, 'conversation_mind_business_facts($bot)')
+    && str_contains($pipelineSrc, 'agent_core_knowledge_pack($bot')
+    && !preg_match('/AGENT_CORE_BOT_IDS|in_array\(\s*\$botId/', $knowledgeSrc)
+    && !preg_match('/AGENT_CORE_BOT_IDS|bot_ids\(\)/', $intentSrc),
+    'ROUTE-E knowledge + LIVE_WORLD intent are per-bot and not legacy allow-list gated'
+);
+
+$inactiveTry = agent_core_channel_try(
+    ['id' => 808, 'is_active' => 0, 'whatsapp_auto_reply' => 1],
+    0,
+    'hi',
+    0,
+    'whatsapp'
+);
+ac_assert(
+    ($inactiveTry['path'] ?? '') === 'core_off'
+    && in_array(($inactiveTry['fallback_reason'] ?? ''), ['disabled', 'inactive'], true),
+    'ROUTE-F inactive bots do not enter Core (master-off → disabled; else inactive)'
+);
+
+$convPipelineSrc = file_get_contents($root . '/includes/conversation-pipeline.php') ?: '';
+ac_assert(
+    str_contains($convPipelineSrc, 'function pipeline_widget_defer_business_faq_to_core')
+    && str_contains($convPipelineSrc, 'pipeline_try_direct_intents($leadId, $botId, $userMessage, $bot, $lead, $customerTurn, $options)')
+    && str_contains($convPipelineSrc, '$deferLocationToCore')
+    && str_contains($convPipelineSrc, 'if ($widgetDeferFaq)')
+    && str_contains($convPipelineSrc, 'widget_pre_ai: defer_offer_to_core')
+    && str_contains($convPipelineSrc, 'widget_pre_ai: defer_location_to_core')
+    && str_contains($convPipelineSrc, 'knowledge_offer_reply_text($bot, $userMessage, $leadId)'),
+    'WIDGET-FAQ widget defers offer/location pre-AI to Core; WhatsApp handlers unchanged'
+);
+
+require_once $root . '/includes/conversation-intent.php';
+
+$locBot = [
+    'id'             => 501,
+    'name'           => 'Danish Khan Co',
+    'company_name'   => 'Danish Khan Co',
+    'address'        => 'Gulberg III, Lahore, Pakistan',
+    'industry_key'   => 'services',
+    'is_active'      => 1,
+];
+ac_assert(
+    conversation_is_location_question('Where are you located?')
+    && agent_core_canonical_location_draft($locBot, 'Where are you located?') === "We're at Gulberg III, Lahore, Pakistan."
+    && agent_core_canonical_location_draft($locBot, 'What do you offer?') === '',
+    'LOC-B location question returns address draft without OpenAI'
+);
+
+$locCtx = $coachCtx;
+$locCtx['text'] = 'Where are you located?';
+$locCtx['channel'] = 'widget';
+$locCtx['bot'] = array_merge(is_array($locCtx['bot'] ?? null) ? $locCtx['bot'] : [], $locBot);
+$locRun = agent_core_run($locCtx);
+ac_assert(
+    !empty($locRun['ok'])
+    && str_contains((string) ($locRun['reply'] ?? ''), 'Lahore')
+    && ac_compose_path($locRun) === 'agent_core',
+    'LOC-C widget location reaches Core with canonical address reply'
+);
+
+require_once $root . '/includes/live-world-info.php';
+require_once $root . '/includes/conversation-source-router.php';
+
+ac_assert(
+    function_exists('live_world_message_needs_fresh_evidence')
+    && live_world_message_needs_fresh_evidence('What happened recently in tech?', '')
+    && live_world_message_needs_fresh_evidence('Who is currently the governor?', '')
+    && live_world_message_needs_fresh_evidence('Latest match scores please', '')
+    && live_world_message_needs_fresh_evidence('What is the weather today?', '')
+    && !live_world_message_needs_fresh_evidence('What do you offer?', '')
+    && !live_world_message_needs_fresh_evidence('Where are you located?', ''),
+    'FRESH-A global freshness lexicon routes current-world, not business FAQ'
+);
+
+$recentCtx = $baseCtx;
+$recentCtx['text'] = 'What happened recently in the news?';
+$recentIntent = agent_core_intent($recentCtx, $emptyConv);
+ac_assert(
+    ($recentIntent['kind'] ?? '') === 'LIVE_WORLD' && !empty($recentIntent['needs_web']),
+    'FRESH-B recent/news phrasing is LIVE_WORLD'
+);
+
+$sportsCtx = $baseCtx;
+$sportsCtx['text'] = 'Who won the latest football match?';
+$sportsIntent = agent_core_intent($sportsCtx, $emptyConv);
+ac_assert(
+    ($sportsIntent['kind'] ?? '') === 'LIVE_WORLD',
+    'FRESH-C sports results phrasing is LIVE_WORLD'
+);
+
+$bizLiveCtx = $baseCtx;
+$bizLiveCtx['text'] = 'Where are you and who is the current president?';
+$bizLiveIntent = agent_core_intent($bizLiveCtx, $emptyConv);
+$bizLiveSource = agent_core_source_route($bizLiveCtx, $emptyConv, $bizLiveIntent);
+ac_assert(
+    ($bizLiveSource['primary'] ?? '') === 'MIXED' && !empty($bizLiveSource['needs_web']),
+    'FRESH-D business + current-world combines as MIXED'
+);
+
+$liveWorldSrc = file_get_contents($root . '/includes/live-world-info.php') ?: '';
+$routerSrcFresh = file_get_contents($root . '/includes/conversation-source-router.php') ?: '';
+ac_assert(
+    str_contains($liveWorldSrc, 'function live_world_message_needs_fresh_evidence')
+    && str_contains($routerSrcFresh, 'live_world_message_needs_fresh_evidence')
+    && !str_contains($routerSrcFresh, 'who runs (america')
+    && !str_contains($routerSrcFresh, 'pakistan news'),
+    'FRESH-E single global freshness gate; no topic-specific router handlers'
+);
+
+$composeSrcFresh = file_get_contents($root . '/includes/agent-core/compose.php') ?: '';
+$widgetSrcFresh = file_get_contents($root . '/api/chat-widget.php') ?: '';
+$aiRespondSrcFresh = file_get_contents($root . '/api/ai-respond.php') ?: '';
+ac_assert(
+    str_contains($composeSrcFresh, 'agent_core_compose_live_world_draft')
+    && str_contains($widgetSrcFresh, 'register_shutdown_function')
+    && str_contains($aiRespondSrcFresh, 'agent_core_fallback'),
+    'FRESH-F LIVE_WORLD fast compose + widget fatal JSON guard + widget Core fallback'
 );
 
 echo "\n{$passed} passed, {$failed} failed\n";

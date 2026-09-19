@@ -13,7 +13,9 @@ require_once __DIR__ . '/ai-personality.php';
 function ensure_bots_schema(): void
 {
     static $done = false;
-    if ($done) {
+    if ($done || !empty($GLOBALS['P2E_LIVE_ISOLATED']) || !empty($GLOBALS['P2E_BASELINE_FIXTURE'])) {
+        $done = true;
+
         return;
     }
 
@@ -41,7 +43,9 @@ function ensure_bots_schema(): void
 function ensure_bot_training_schema(): void
 {
     static $done = false;
-    if ($done) {
+    if ($done || !empty($GLOBALS['P2E_LIVE_ISOLATED']) || !empty($GLOBALS['P2E_BASELINE_FIXTURE'])) {
+        $done = true;
+
         return;
     }
 
@@ -1426,6 +1430,207 @@ function knowledge_price_from_training(array $bot): string
     }
 
     return '';
+}
+
+/**
+ * Training / workshop pricing from owner training text — never invent a fixed corporate rate.
+ *
+ * @param array<string, mixed> $bot
+ */
+function knowledge_extract_training_price_from(array $bot): string
+{
+    $text = trim((string) ($bot['bot_knowledge'] ?? '') . "\n" . (string) ($bot['business_model'] ?? ''));
+    if ($text === '') {
+        return '';
+    }
+    if (preg_match('/training[^\n]{0,120}starting from\s*\$?\s*(\d+(?:\.\d+)?)/iu', $text, $m)) {
+        return '$' . $m[1];
+    }
+    if (preg_match('/starting from\s*\$?\s*(\d+(?:\.\d+)?)[^\n]{0,80}training/iu', $text, $m)) {
+        return '$' . $m[1];
+    }
+    if (preg_match('/\$\s*(\d+(?:\.\d+)?)\s*(?:and up|\+)?[^\n]{0,60}training/iu', $text, $m)) {
+        return '$' . $m[1];
+    }
+
+    return '';
+}
+
+function knowledge_message_is_training_price_question(string $message): bool
+{
+    $lower = mb_strtolower(trim($message));
+
+    return (bool) preg_match(
+        '/\b(how much (is|for|does)|price|cost|rate|pricing|fee)\b/u',
+        $lower
+    ) && (bool) preg_match(
+        '/\b(training|workshop|corporate training|seminar|team session|group session)\b/u',
+        $lower
+    );
+}
+
+function knowledge_message_is_coaching_price_question(string $message): bool
+{
+    $lower = mb_strtolower(trim($message));
+
+    return (bool) preg_match(
+        '/\b(how much|price|cost|rate|pricing|fee)\b/u',
+        $lower
+    ) && (bool) preg_match(
+        '/\b(1:1|one on one|coaching session|coaching|private session|hourly)\b/u',
+        $lower
+    );
+}
+
+/**
+ * Verified price line from training — coaching vs training, not cross-applied.
+ *
+ * @param array<string, mixed> $bot
+ */
+function knowledge_contextual_price_reply(array $bot, string $userMessage): string
+{
+    $userMessage = trim($userMessage);
+    if ($userMessage === '') {
+        return '';
+    }
+    $hourly = knowledge_extract_hourly_rate($bot);
+    $trainingFrom = knowledge_extract_training_price_from($bot);
+
+    if (knowledge_message_is_training_price_question($userMessage)) {
+        if ($trainingFrom !== '') {
+            return 'Training starts from ' . $trainingFrom
+                . ' and depends on the training assignment. What kind of training are you looking for?';
+        }
+
+        return '';
+    }
+
+    if (knowledge_message_is_coaching_price_question($userMessage) && $hourly !== '') {
+        return '1:1 coaching is ' . $hourly . '.';
+    }
+
+    if (preg_match('/\b(how much|price|cost|rate|pricing)\b/iu', $userMessage)) {
+        if (preg_match('/\b(package|program|plan|tier|platinum|gold|premium|executive)\b/iu', $userMessage)
+            && !knowledge_message_is_coaching_price_question($userMessage)
+            && !knowledge_message_is_training_price_question($userMessage)
+        ) {
+            return '';
+        }
+        if ($hourly !== '' && !knowledge_message_is_training_price_question($userMessage)) {
+            return knowledge_price_from_training($bot);
+        }
+    }
+
+    return '';
+}
+
+/**
+ * @param list<array<string, mixed>> $history
+ */
+function knowledge_conversation_is_new(array $history): bool
+{
+    foreach ($history as $row) {
+        $role = mb_strtolower(trim((string) ($row['role'] ?? '')));
+        if ($role === 'assistant' || $role === 'user') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Configured greeting only on a new conversation — universal, from owner training text.
+ *
+ * @param array<string, mixed> $bot
+ * @param list<array<string, mixed>> $history
+ */
+function knowledge_greeting_for_conversation(array $bot, array $history, string $userMessage): string
+{
+    if (!knowledge_conversation_is_new($history)) {
+        return '';
+    }
+    $greet = trim(knowledge_configured_greeting($bot));
+    if ($greet === '') {
+        return '';
+    }
+    $userMessage = trim($userMessage);
+    if ($userMessage === '' || $userMessage === '[Customer sent a message]') {
+        return $greet;
+    }
+    require_once __DIR__ . '/conversation-intent.php';
+    if (function_exists('conversation_is_location_question') && conversation_is_location_question($userMessage)) {
+        return '';
+    }
+    if (knowledge_message_is_offer_question($userMessage)) {
+        return '';
+    }
+    if (!preg_match('/^(hi+|hello+|hey+|salam|assalam)/iu', $userMessage) && mb_strlen($userMessage) > 40) {
+        return '';
+    }
+    if (!preg_match('/^(hi+|hello+|hey+|salam|assalam|good\s+(?:morning|afternoon|evening))/iu', $userMessage)) {
+        return '';
+    }
+
+    return $greet;
+}
+
+/**
+ * Detect conflicting or past event dates mentioned in customer text.
+ *
+ * @return array{conflict: bool, past: bool, notes: list<string>}
+ */
+function knowledge_event_date_issues(string $text): array
+{
+    $issues = ['conflict' => false, 'past' => false, 'notes' => []];
+    $lower = mb_strtolower(trim($text));
+    if ($lower === '') {
+        return $issues;
+    }
+    if (preg_match('/\b(this coming|next)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/u', $lower)
+        && preg_match('/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b/u', $lower)
+    ) {
+        $issues['conflict'] = true;
+        $issues['notes'][] = 'weekday_and_calendar_date';
+    }
+    if (preg_match('/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})\b/u', $lower, $m)) {
+        $months = [
+            'january' => 1, 'february' => 2, 'march' => 3, 'april' => 4, 'may' => 5, 'june' => 6,
+            'july' => 7, 'august' => 8, 'september' => 9, 'october' => 10, 'november' => 11, 'december' => 12,
+        ];
+        $month = $months[(string) ($m[1] ?? '')] ?? 0;
+        $day = (int) ($m[2] ?? 0);
+        if ($month > 0 && $day > 0) {
+            $year = (int) date('Y');
+            $candidate = sprintf('%04d-%02d-%02d', $year, $month, $day);
+            if ($candidate < date('Y-m-d')) {
+                $issues['past'] = true;
+                $issues['notes'][] = 'past_calendar_date';
+            }
+        }
+    }
+
+    return $issues;
+}
+
+/**
+ * Detect training/coaching hourly rate mix-up in a reply (tenant training text, not hardcoded amounts).
+ *
+ * @param array<string, mixed> $bot
+ */
+function knowledge_reply_mixed_training_coaching_prices(array $bot, string $draft): bool
+{
+    $lower = mb_strtolower(trim($draft));
+    if (!preg_match('/\b(training|workshop|corporate training|seminar)\b/u', $lower)) {
+        return false;
+    }
+    $hourly = knowledge_extract_hourly_rate($bot);
+    if ($hourly === '') {
+        return false;
+    }
+    $rateNum = preg_replace('/[^\d.]/', '', $hourly);
+
+    return $rateNum !== '' && preg_match('/\$\s*' . preg_quote($rateNum, '/') . '\s*(?:\/|\s*(?:per|an)\s*)?(?:hour|hr)\b/u', $lower);
 }
 
 function knowledge_first_greeting(array $bot): string
