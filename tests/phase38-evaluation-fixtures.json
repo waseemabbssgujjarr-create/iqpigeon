@@ -1,0 +1,102 @@
+{
+  "successful_agent_core": {
+    "turn_id": 90001,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 10:00:01", "detail_json": {"turn_id": 90001, "bot_id": 53, "channel": "whatsapp", "elapsed_ms": 5}},
+      {"event_type": "CORE_INTELLIGENCE", "created_at": "2026-09-19 10:00:02", "detail_json": {"primary_intent": "PRICE_INQUIRY", "emotion": "neutral", "readiness": "evaluating", "next_best_action": "answer_price"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 10:00:03", "detail_json": {"selected_action": "answer_price", "cta_mode": "answer_advance", "customer_need": "learn_pricing", "response_goal": "share_pricing"}},
+      {"event_type": "CORE_VALIDATE", "created_at": "2026-09-19 10:00:04", "detail_json": {"ok": true, "validation": "ok", "reason": "ok"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 10:00:04", "detail_json": {"ok": true, "primary_intent": "PRICE_INQUIRY"}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 10:00:05", "detail_json": {}}
+    ]
+  },
+  "validation_block": {
+    "turn_id": 90002,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 11:00:00", "detail_json": {"turn_id": 90002, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_VALIDATE", "created_at": "2026-09-19 11:00:02", "detail_json": {"ok": false, "validation": "failed", "reason": "false_action"}},
+      {"event_type": "CORE_FALLBACK", "created_at": "2026-09-19 11:00:02", "detail_json": {"fallback_reason": "validation_failed"}}
+    ]
+  },
+  "action_flow": {
+    "turn_id": 90003,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 12:00:00", "detail_json": {"turn_id": 90003, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 12:00:01", "detail_json": {"tool_selected": "booking.create"}},
+      {"event_type": "CORE_TOOL_COMPLETE", "created_at": "2026-09-19 12:00:03", "detail_json": {"tool": "booking.create", "ok": true}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 12:00:03", "detail_json": {"ok": true, "validation_result": "verified"}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 12:00:04", "detail_json": {}}
+    ]
+  },
+  "fallback": {
+    "turn_id": 90004,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 13:00:00", "detail_json": {"turn_id": 90004, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_FALLBACK", "created_at": "2026-09-19 13:00:01", "detail_json": {"fallback_reason": "tool_failure"}}
+    ]
+  },
+  "incomplete_unknown": {
+    "turn_id": 90005,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 14:00:00", "detail_json": {"turn_id": 90005, "bot_id": 53, "channel": "whatsapp"}}
+    ]
+  },
+  "support_flow": {
+    "turn_id": 90007,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 16:00:00", "detail_json": {"turn_id": 90007, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 16:00:01", "detail_json": {"customer_need": "resolve_delivery", "cta_mode": "support", "selected_action": "resolve_delivery"}},
+      {"event_type": "CORE_VALIDATE", "created_at": "2026-09-19 16:00:02", "detail_json": {"ok": true, "validation": "ok", "reason": "ok"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 16:00:02", "detail_json": {"ok": true}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 16:00:03", "detail_json": {}}
+    ]
+  },
+  "booking_collecting": {
+    "turn_id": 90008,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 17:00:00", "detail_json": {"turn_id": 90008, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 17:00:01", "detail_json": {"selected_action": "collect_booking_fields", "cta_mode": "question_only"}},
+      {"event_type": "CORE_VALIDATE", "created_at": "2026-09-19 17:00:02", "detail_json": {"ok": true, "validation": "ok", "reason": "ok"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 17:00:02", "detail_json": {"ok": true}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 17:00:03", "detail_json": {}}
+    ]
+  },
+  "unverified_booking": {
+    "turn_id": 90009,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 18:00:00", "detail_json": {"turn_id": 90009, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_TOOL_COMPLETE", "created_at": "2026-09-19 18:00:02", "detail_json": {"tool": "booking.create", "ok": true}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 18:00:02", "detail_json": {"ok": true}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 18:00:03", "detail_json": {}}
+    ]
+  },
+  "stop_social": {
+    "turn_id": 90010,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 19:00:00", "detail_json": {"turn_id": 90010, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 19:00:01", "detail_json": {"cta_mode": "stop", "selected_action": "close_conversation"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 19:00:02", "detail_json": {"ok": true}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 19:00:03", "detail_json": {}}
+    ]
+  },
+  "multi_intent": {
+    "turn_id": 90011,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 20:00:00", "detail_json": {"turn_id": 90011, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_INTELLIGENCE", "created_at": "2026-09-19 20:00:01", "detail_json": {"primary_intent": "PRICE_INQUIRY", "next_best_action": "answer_price"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 20:00:01", "detail_json": {"multi_intent": true, "combined_action": true, "customer_need": "learn_pricing"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 20:00:02", "detail_json": {"ok": true}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 20:00:03", "detail_json": {}}
+    ]
+  },
+  "objection_price": {
+    "turn_id": 90012,
+    "events": [
+      {"event_type": "CORE_START", "created_at": "2026-09-19 21:00:00", "detail_json": {"turn_id": 90012, "bot_id": 53, "channel": "whatsapp"}},
+      {"event_type": "CORE_PLAN", "created_at": "2026-09-19 21:00:01", "detail_json": {"objection": true, "objection_type": "price", "primary_intent": "PRICE_INQUIRY", "next_best_action": "handle_objection"}},
+      {"event_type": "CORE_INTELLIGENCE", "created_at": "2026-09-19 21:00:01", "detail_json": {"primary_intent": "PRICE_INQUIRY", "next_best_action": "handle_objection"}},
+      {"event_type": "CORE_COMPLETE", "created_at": "2026-09-19 21:00:02", "detail_json": {"ok": true, "primary_intent": "PRICE_INQUIRY"}},
+      {"event_type": "RESPONSE_SENT", "created_at": "2026-09-19 21:00:03", "detail_json": {}}
+    ]
+  }
+}

@@ -1,0 +1,155 @@
+[
+  {
+    "scenario_id": "P38-001",
+    "name": "Clean Agent Core success",
+    "dimension": "Basic conversation",
+    "p36_ref": "P36-001",
+    "fixture_key": "successful_agent_core",
+    "input": "What are your prices?",
+    "assertions": [
+      {"assertion_id": "P38-001-PATH", "type": "path_equals", "expected": "agent_core"},
+      {"assertion_id": "P38-001-INTENT", "type": "intent_equals", "expected": "PRICE_INQUIRY"},
+      {"assertion_id": "P38-001-VAL", "type": "validation_passed"},
+      {"assertion_id": "P38-001-DEL", "type": "delivery_succeeded"}
+    ]
+  },
+  {
+    "scenario_id": "P38-002",
+    "name": "Pricing intent and CTA",
+    "dimension": "Pricing",
+    "p36_ref": "P36-005",
+    "fixture_key": "successful_agent_core",
+    "input": "What are your prices?",
+    "assertions": [
+      {"assertion_id": "P38-002-ACT", "type": "action_equals", "expected": "answer_price"},
+      {"assertion_id": "P38-002-CTA", "type": "cta_mode_equals", "expected": "answer_advance"},
+      {"assertion_id": "P38-002-STAGE", "type": "stage_observed", "expected": "PLAN"}
+    ]
+  },
+  {
+    "scenario_id": "P38-003",
+    "name": "Support need observable",
+    "dimension": "Support",
+    "p36_ref": "P36-010",
+    "fixture_key": "support_flow",
+    "input": "My delivery is late",
+    "assertions": [
+      {"assertion_id": "P38-003-PATH", "type": "path_equals", "expected": "agent_core"},
+      {"assertion_id": "P38-003-NEED", "type": "customer_need_equals", "expected": "resolve_delivery"},
+      {"assertion_id": "P38-003-CTA", "type": "cta_mode_equals", "expected": "support", "critical": true}
+    ]
+  },
+  {
+    "scenario_id": "P38-004",
+    "name": "Verified booking action",
+    "dimension": "Booking",
+    "p36_ref": "P36-007",
+    "fixture_key": "action_flow",
+    "input": "Book tomorrow 5pm",
+    "assertions": [
+      {"assertion_id": "P38-004-EXEC", "type": "action_executed"},
+      {"assertion_id": "P38-004-VER", "type": "action_verified"},
+      {"assertion_id": "P38-004-BOOK", "type": "no_unverified_booking_execution", "critical": true}
+    ]
+  },
+  {
+    "scenario_id": "P38-005",
+    "name": "Missing booking info path",
+    "dimension": "Booking",
+    "p36_ref": "P36-008",
+    "fixture_key": "booking_collecting",
+    "input": "Book me for tomorrow",
+    "assertions": [
+      {"assertion_id": "P38-005-PATH", "type": "path_equals", "expected": "agent_core"},
+      {"assertion_id": "P38-005-PLAN", "type": "stage_observed", "expected": "PLAN"},
+      {"assertion_id": "P38-005-NOEXEC", "type": "action_not_verified"}
+    ]
+  },
+  {
+    "scenario_id": "P38-006",
+    "name": "Validation blocks false action",
+    "dimension": "Factuality",
+    "p36_ref": "P36-018",
+    "fixture_key": "validation_block",
+    "input": "Your appointment is booked right?",
+    "assertions": [
+      {"assertion_id": "P38-006-BLOCK", "type": "validation_blocked", "critical": true},
+      {"assertion_id": "P38-006-REASON", "type": "validation_reason_equals", "expected": "false_action"},
+      {"assertion_id": "P38-006-FB", "type": "fallback_reason_equals", "expected": "validation_failed"}
+    ]
+  },
+  {
+    "scenario_id": "P38-007",
+    "name": "Tool failure fallback",
+    "dimension": "Action completion",
+    "p36_ref": "P36-007",
+    "fixture_key": "fallback",
+    "input": "Book appointment",
+    "assertions": [
+      {"assertion_id": "P38-007-PATH", "type": "path_equals", "expected": "fallback"},
+      {"assertion_id": "P38-007-REASON", "type": "fallback_reason_equals", "expected": "tool_failure"}
+    ]
+  },
+  {
+    "scenario_id": "P38-008",
+    "name": "Fabricated action without verification",
+    "dimension": "Safety",
+    "p36_ref": "P36-018",
+    "fixture_key": "unverified_booking",
+    "input": "Confirm booking",
+    "assertions": [
+      {"assertion_id": "P38-008-EXEC", "type": "action_executed"},
+      {"assertion_id": "P38-008-NOVER", "type": "action_not_verified", "critical": true},
+      {"assertion_id": "P38-008-CRIT", "type": "no_unverified_booking_execution", "critical": true}
+    ]
+  },
+  {
+    "scenario_id": "P38-009",
+    "name": "Incomplete Core path",
+    "dimension": "Context handling",
+    "p36_ref": "P36-003",
+    "fixture_key": "incomplete_unknown",
+    "input": "Tell me more",
+    "assertions": [
+      {"assertion_id": "P38-009-PATH", "type": "path_equals", "expected": "unknown"},
+      {"assertion_id": "P38-009-NOFB", "type": "path_not_fallback"}
+    ]
+  },
+  {
+    "scenario_id": "P38-010",
+    "name": "Stop / social CTA",
+    "dimension": "Stop behavior",
+    "p36_ref": "P36-001",
+    "fixture_key": "stop_social",
+    "input": "Thanks, that's all",
+    "assertions": [
+      {"assertion_id": "P38-010-CTA", "type": "cta_mode_equals", "expected": "stop"},
+      {"assertion_id": "P38-010-PATH", "type": "path_equals", "expected": "agent_core"}
+    ]
+  },
+  {
+    "scenario_id": "P38-011",
+    "name": "Multi-intent plan stage",
+    "dimension": "Multi-intent",
+    "p36_ref": "P36-014",
+    "fixture_key": "multi_intent",
+    "input": "Price and delivery to Lahore?",
+    "assertions": [
+      {"assertion_id": "P38-011-PATH", "type": "path_equals", "expected": "agent_core"},
+      {"assertion_id": "P38-011-PLAN", "type": "stage_observed", "expected": "PLAN"},
+      {"assertion_id": "P38-011-MULTI", "type": "intent_present"}
+    ]
+  },
+  {
+    "scenario_id": "P38-012",
+    "name": "Objection handling signal",
+    "dimension": "Objection handling",
+    "p36_ref": "P36-015",
+    "fixture_key": "objection_price",
+    "input": "Too expensive",
+    "assertions": [
+      {"assertion_id": "P38-012-PATH", "type": "path_not_fallback"},
+      {"assertion_id": "P38-012-INTENT", "type": "intent_present"}
+    ]
+  }
+]
