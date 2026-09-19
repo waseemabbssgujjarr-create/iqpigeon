@@ -1,0 +1,58 @@
+{
+  "version": "1",
+  "known_good_stage": "0",
+  "production_baseline_note": "Stage 0 mirrors known-good AGENT_CORE_ROLLOUT_BOT_IDS=53; expansion is operator-authorized only.",
+  "allow_stage_jumps": false,
+  "allowed_transitions": [
+    ["0", "1"],
+    ["1", "2"],
+    ["2", "3"]
+  ],
+  "stages": {
+    "0": {
+      "label": "Controlled — Bot 53 only",
+      "active_bot_ids": [53],
+      "rollback_stage": "0"
+    },
+    "1": {
+      "label": "Small approved cohort",
+      "active_bot_ids": [53, 54],
+      "rollback_stage": "0"
+    },
+    "2": {
+      "label": "Expanded cohort",
+      "active_bot_ids": [53, 54, 55],
+      "rollback_stage": "1"
+    },
+    "3": {
+      "label": "All eligible bots (rollout list empty = eligibility-only)",
+      "active_bot_ids": [],
+      "rollout_list_empty_means_all_eligible": true,
+      "rollback_stage": "2"
+    }
+  },
+  "requirements": {
+    "release_gate_status": "PASS",
+    "max_critical_failures": 0,
+    "evaluation_report_required": true,
+    "baseline_required": false
+  },
+  "rollback_signals": {
+    "gate_fail": {"decision": "ROLLBACK_REQUIRED"},
+    "gate_blocked": {"decision": "ROLLBACK_REQUIRED"},
+    "critical_evaluation_failure": {"decision": "ROLLBACK_REQUIRED"},
+    "fallback_rate_threshold": {
+      "decision": "ROLLBACK_RECOMMENDED",
+      "metric": "path_rates.fallback_rate",
+      "max": 0.35,
+      "min_turns": 10
+    }
+  },
+  "bot_catalog": {
+    "53": {"id": 53, "is_active": 1, "whatsapp_auto_reply": 1, "widget_enabled": 0},
+    "54": {"id": 54, "is_active": 1, "whatsapp_auto_reply": 1, "widget_enabled": 0},
+    "55": {"id": 55, "is_active": 1, "whatsapp_auto_reply": 1, "widget_enabled": 0},
+    "56": {"id": 56, "is_active": 0, "whatsapp_auto_reply": 1, "widget_enabled": 0},
+    "99": {"id": 99, "is_active": 1, "whatsapp_auto_reply": 0, "widget_enabled": 0}
+  }
+}
