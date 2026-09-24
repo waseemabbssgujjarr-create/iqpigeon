@@ -2,6 +2,7 @@
 config.php
 config.local.php
 config.local.server.php
+mycrm.local.php
 .env
 .env.*
 !.env.example

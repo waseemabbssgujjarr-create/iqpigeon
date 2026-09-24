@@ -45,6 +45,7 @@ echo '<a class="btn btn--primary btn--block btn--sm" style="margin-top:12px" hre
 echo '<header class="topbar"><form class="topbar__search" method="get" action="/admin/businesses">';
 echo iqp_icon_svg('search') . '<input name="q" placeholder="Search businesses, users, tickets..." value="' . $searchQ . '"/></form>';
 echo '<div class="topbar__spacer"></div>';
+iqp_whatsapp_api_platform_topbar_link('admin');
 echo '<a class="icon-btn" href="/admin/announcements">' . iqp_icon_svg('bell') . '</a>';
 echo '<div class="topbar__user"><span class="avatar">' . sanitize(iqp_initials($name)) . '</span>';
 echo '<div><div class="nm">' . sanitize($name) . '</div><div class="role">Super Admin</div></div>';

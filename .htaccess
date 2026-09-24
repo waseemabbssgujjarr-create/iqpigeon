@@ -23,6 +23,7 @@ RewriteRule ^install/   - [F,L]
 RewriteRule ^storage/   - [F,L]
 RewriteRule ^config\.php$ - [F,L]
 RewriteRule ^config\.local\.php$ - [F,L]
+RewriteRule ^mycrm\.local\.php$ - [F,L]
 
 # Block dangerous one-time / dev scripts (defense in depth — also gated in PHP)
 RewriteRule ^(ensure-test-users|setup|sync-calendly)\.php$ - [F,L]

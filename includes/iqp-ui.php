@@ -75,6 +75,7 @@ function iqp_plan_label(?string $plan): string
     $plan = strtolower(trim((string) $plan));
     $map = [
         'starter' => 'Starter Plan',
+        'starter_annual' => 'Starter Annual',
         'pro' => 'Pro Plan',
         'growth' => 'Growth Plan',
         'business' => 'Business Plan',
@@ -100,6 +101,44 @@ function iqp_user_nav(): array
         ['updates', '/client/notifications', 'Updates', 'bell'],
         ['settings', '/client/settings', 'Settings', 'gear'],
     ];
+}
+
+/** Production URL for the separate WhatsApp API / Partner API SaaS (not administered in this CRM). */
+function iqp_whatsapp_api_platform_url(): string
+{
+    return 'https://whatsappapi.iqpigeon.com';
+}
+
+/**
+ * Topbar link to the external WhatsApp API platform (navigation only — no SSO or tokens).
+ *
+ * @param 'admin'|'client' $context
+ */
+function iqp_whatsapp_api_platform_topbar_link(string $context = 'admin'): void
+{
+    $url = iqp_whatsapp_api_platform_url();
+    $label = 'WhatsApp API';
+    $title = 'Open WhatsApp API platform';
+
+    $externalSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+
+    if ($context === 'client') {
+        echo '<a href="' . sanitize($url) . '" target="_blank" rel="noopener noreferrer" '
+            . 'class="iqp-platform-link iqp-platform-link--client" title="' . sanitize($title) . '">'
+            . '<span class="iqp-platform-link__ic">' . iqp_icon_svg('layers', '#6366f1') . '</span>'
+            . '<span class="iqp-platform-link__label">' . sanitize($label) . '</span>'
+            . '<span class="iqp-platform-link__ext">' . $externalSvg . '</span>'
+            . '</a>';
+
+        return;
+    }
+
+    echo '<a href="' . sanitize($url) . '" target="_blank" rel="noopener noreferrer" '
+        . 'class="topbar__product-link" title="' . sanitize($title) . '">'
+        . '<span class="topbar__product-link__ic">' . iqp_icon_svg('layers') . '</span>'
+        . '<span class="topbar__product-link__label">' . sanitize($label) . '</span>'
+        . '<span class="topbar__product-link__ext">' . $externalSvg . '</span>'
+        . '</a>';
 }
 
 function iqp_admin_nav(): array
@@ -210,6 +249,7 @@ function iqp_icon_svg(string $name, string $stroke = 'currentColor'): string
         'mail'       => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
         'sparkles'   => '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>',
         'globe'      => '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+        'external'   => '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
     ];
     $d = $paths[$name] ?? $paths['grid'];
     return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' . sanitize($stroke) . '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
@@ -361,6 +401,7 @@ function iqp_user_topbar_actions(array $user, string $name, bool $compact = fals
     $profileLabel = iqp_user_profile_label($user);
     $avatarSize = $compact ? 32 : 32;
     echo '<div class="iqp-topbar-actions flex items-center gap-2 sm:gap-3 ml-auto shrink-0">';
+    iqp_whatsapp_api_platform_topbar_link('client');
     echo '<div class="iqp-topbar-usermenu" data-iqp-usermenu>';
     echo '<button type="button" class="iqp-topbar-profile flex items-center gap-2 min-w-0" aria-haspopup="true" aria-expanded="false" title="Account menu">';
     echo iqp_user_avatar_markup($user, $name, $avatarSize);
@@ -574,6 +615,7 @@ function iqp_admin_begin(array $user, string $active, array $opts = []): void
     echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;color:var(--muted-2)"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
     echo '<input name="q" placeholder="' . sanitize($search) . '" value="' . sanitize((string)($_GET['gq'] ?? $_GET['q'] ?? '')) . '"/></form>';
     echo '<div class="topbar__spacer"></div>';
+    iqp_whatsapp_api_platform_topbar_link('admin');
     // Notification bell with badge
     $notifCount = 12; // static decorative
     echo '<a class="notif-bell" href="/admin/announcements" title="Notifications">'
