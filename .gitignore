@@ -33,6 +33,7 @@ composer.lock
 !/storage/security/
 !/storage/website-import-jobs/
 !/storage/whatsapp-media/
+!/storage/mycrm/
 
 /storage/logs/*
 !/storage/logs/.gitkeep
