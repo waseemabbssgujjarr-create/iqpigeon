@@ -1,5 +1,6 @@
 # Secrets — never commit
 config.php
+!includes/mycrm/config.php
 config.local.php
 config.local.server.php
 mycrm.local.php
@@ -51,6 +52,10 @@ composer.lock
 
 /storage/whatsapp-media/*
 !/storage/whatsapp-media/.htaccess
+
+/storage/mycrm/*
+!/storage/mycrm/.gitkeep
+!/storage/mycrm/.htaccess
 
 /uploads/conversation-media/inbound/*
 !/uploads/conversation-media/inbound/.gitkeep
