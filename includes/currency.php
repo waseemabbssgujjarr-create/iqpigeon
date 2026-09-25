@@ -118,6 +118,29 @@ function plan_pkr_prices(): array
  *
  * @param array<string, mixed> $plan
  */
+function plan_is_annual(array $plan): bool
+{
+    return ($plan['billing_interval'] ?? 'month') === 'year';
+}
+
+/**
+ * Annual savings vs paying the listed monthly rate × 12 (e.g. $20/mo → $240 vs $190/year ≈ 20.8% off).
+ */
+function plan_annual_discount_percent(array $plan): ?float
+{
+    if (!plan_is_annual($plan)) {
+        return null;
+    }
+    $monthlyList = (int) ($plan['compare_monthly_usd'] ?? $plan['price'] ?? 0);
+    $annual = (int) ($plan['price_usd'] ?? 0);
+    if ($monthlyList <= 0 || $annual <= 0) {
+        return null;
+    }
+    $fullYear = $monthlyList * 12;
+
+    return round((($fullYear - $annual) / $fullYear) * 100, 1);
+}
+
 function plan_price_amount(array $plan, ?string $currency = null): ?int
 {
     if (!empty($plan['contact_only'])) {
@@ -127,15 +150,41 @@ function plan_price_amount(array $plan, ?string $currency = null): ?int
     $currency = strtoupper($currency ?? visitor_currency());
 
     if ($currency === 'PKR') {
+        if (!empty($plan['stripe_only']) || plan_is_annual($plan)) {
+            return null;
+        }
         $slug = normalize_plan_slug((string) ($plan['slug'] ?? 'starter'));
-        if (isset($plan['price_pkr'])) {
+        if (isset($plan['price_pkr']) && $plan['price_pkr'] !== null) {
             return (int) $plan['price_pkr'];
         }
         $pkr = plan_pkr_prices();
         return (int) ($pkr[$slug] ?? $pkr['starter']);
     }
 
+    if (plan_is_annual($plan)) {
+        return (int) ($plan['compare_monthly_usd'] ?? $plan['price'] ?? 0);
+    }
+
     return (int) ($plan['price_usd'] ?? $plan['price'] ?? 0);
+}
+
+/**
+ * Amount charged per billing period (annual total or monthly).
+ */
+function plan_billed_amount(array $plan, ?string $currency = null): ?int
+{
+    if (!empty($plan['contact_only'])) {
+        return null;
+    }
+    $currency = strtoupper($currency ?? visitor_currency());
+    if ($currency === 'PKR' && (plan_is_annual($plan) || !empty($plan['stripe_only']))) {
+        return null;
+    }
+    if (plan_is_annual($plan)) {
+        return (int) ($plan['price_usd'] ?? 0);
+    }
+
+    return plan_price_amount($plan, $currency);
 }
 
 function format_plan_price(?int $amount, ?string $currency = null): string
@@ -165,9 +214,14 @@ function localized_plans(): array
     $out = [];
 
     foreach ($plans as $slug => $plan) {
+        if ($currency === 'PKR' && (plan_is_annual($plan) || !empty($plan['stripe_only']))) {
+            continue;
+        }
         $plan['slug'] = $slug;
         $plan['display_currency'] = $currency;
         $plan['display_price'] = plan_price_amount($plan, $currency);
+        $plan['billed_amount'] = plan_billed_amount($plan, $currency);
+        $plan['annual_discount_percent'] = plan_annual_discount_percent($plan);
         $out[$slug] = $plan;
     }
 

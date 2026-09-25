@@ -700,15 +700,20 @@ function conversation_mind_live_answer(array $bot, string $userMessage, array $c
     }
     $openaiOk = false;
     $openaiEmpty = true;
+    $liveAttempts = 2;
     try {
-        $out = null;
-        if (array_key_exists('conversation_mind_test_live_openai', $GLOBALS)) {
-            $stub = $GLOBALS['conversation_mind_test_live_openai'];
-            $out = is_array($stub) ? $stub : ['success' => false, 'content' => ''];
-        } else {
-            require_once __DIR__ . '/openai.php';
-            $fn = function_exists('ai_chat') ? 'ai_chat' : (function_exists('openai_chat') ? 'openai_chat' : '');
-            if ($fn !== '') {
+        require_once __DIR__ . '/openai.php';
+        $fn = function_exists('ai_chat') ? 'ai_chat' : (function_exists('openai_chat') ? 'openai_chat' : '');
+        for ($attempt = 1; $attempt <= $liveAttempts; $attempt++) {
+            $out = null;
+            if (array_key_exists('conversation_mind_test_live_openai', $GLOBALS)) {
+                $stub = $GLOBALS['conversation_mind_test_live_openai'];
+                if (is_array($stub) && isset($stub['_attempts']) && is_array($stub['_attempts'])) {
+                    $out = $stub['_attempts'][$attempt - 1] ?? ['success' => false, 'content' => ''];
+                } else {
+                    $out = is_array($stub) ? $stub : ['success' => false, 'content' => ''];
+                }
+            } elseif ($fn !== '') {
                 $out = $fn([
                     ['role' => 'system', 'content' => mb_substr($sys, 0, 2500)],
                     ['role' => 'user', 'content' => "Customer: " . mb_substr($userMessage, 0, 400) . "\n\nVerified evidence:\n" . mb_substr($wrapped, 0, 1800)],
@@ -719,8 +724,9 @@ function conversation_mind_live_answer(array $bot, string $userMessage, array $c
                     'temperature'  => 0.2,
                 ]);
             }
-        }
-        if (is_array($out)) {
+            if (!is_array($out)) {
+                continue;
+            }
             $text = trim((string) ($out['content'] ?? ''));
             $openaiOk = !empty($out['success']);
             $openaiEmpty = $text === '';
@@ -731,30 +737,30 @@ function conversation_mind_live_answer(array $bot, string $userMessage, array $c
                     'live_answer_chars'              => mb_strlen($text),
                     'openai_call_ok'                 => true,
                     'openai_call_empty'              => false,
+                    'live_answer_attempt'            => $attempt,
                     'live_answer_looks_like_refusal' => conversation_mind_live_answer_refusal_flag($text),
                 ]));
 
                 return $text;
             }
+            if ($attempt < $liveAttempts && ($openaiEmpty || !$openaiOk)) {
+                usleep(200000);
+                continue;
+            }
         }
     } catch (Throwable $e) {
         error_log('conversation_mind_live_answer: ' . $e->getMessage());
     }
-    $plain = trim((string) preg_replace('/\s+/u', ' ', $evidence));
-    $plain = mb_substr($plain, 0, 280);
     conversation_mind_live_observe('LIVE_ANSWER_FALLBACK', array_merge($bits, [
         'live_answer_used'               => false,
-        'live_answer_source'             => $plain === '' ? 'none' : 'evidence_fallback',
-        'live_answer_chars'              => mb_strlen($plain),
+        'live_answer_source'             => 'none',
+        'live_answer_chars'              => 0,
         'openai_call_ok'                 => $openaiOk,
         'openai_call_empty'              => $openaiEmpty,
-        'live_answer_looks_like_refusal' => conversation_mind_live_answer_refusal_flag($plain),
+        'live_answer_looks_like_refusal' => false,
     ]));
-    if ($plain === '') {
-        return '';
-    }
 
-    return $plain;
+    return '';
 }
 
 /**

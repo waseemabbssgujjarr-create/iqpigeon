@@ -7,15 +7,18 @@ require_once __DIR__ . '/paypak.php';
 $plans = $plans ?? localized_plans();
 $displayCurrency = visitor_currency();
 ?>
-<div class="grid md:grid-cols-3 gap-lg items-stretch">
+<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-lg items-stretch">
     <?php foreach ($plans as $slug => $plan): ?>
     <?php
         $contactOnly = !empty($plan['contact_only']);
         $popular = !empty($plan['popular']);
+        $isAnnual = plan_is_annual($plan);
+        $annualDiscount = $plan['annual_discount_percent'] ?? plan_annual_discount_percent($plan);
         $chatLabel = is_numeric($plan['chats'] ?? null)
             ? number_format((int) $plan['chats']) . ' client chats/mo'
             : (string) ($plan['chats'] ?? 'Custom volume');
         $displayPrice = $plan['display_price'] ?? plan_price_amount($plan, $displayCurrency);
+        $billedAmount = $plan['billed_amount'] ?? plan_billed_amount($plan, $displayCurrency);
     ?>
     <div class="fade-up pricing-card v2-plan-card rounded-2xl p-lg border-2 relative <?= $popular ? 'featured is-popular border-primary shadow-xl bg-primary-container/25' : 'bg-surface-container-lowest border-outline-variant' ?>">
         <?php if ($popular): ?>
@@ -28,7 +31,19 @@ $displayCurrency = visitor_currency();
         <?php else: ?>
             <p class="text-5xl font-bold mb-xs"><?= sanitize(format_plan_price($displayPrice, $displayCurrency)) ?><span class="text-body-lg font-normal text-on-surface-variant">/mo</span></p>
             <p class="text-body-md text-on-surface-variant mb-xs"><?= sanitize((string) $plan['bots']) ?> bot<?= $plan['bots'] === 1 ? '' : 's' ?> · <?= sanitize($chatLabel) ?></p>
+            <?php if ($isAnnual && $billedAmount !== null): ?>
+                <p class="text-body-sm text-on-surface-variant mb-xs">
+                    Billed <?= sanitize(format_plan_price($billedAmount, $displayCurrency)) ?>/year
+                    <?php if ($annualDiscount !== null && $annualDiscount > 0): ?>
+                        · <span class="text-primary font-semibold">Save <?= sanitize((string) (int) round($annualDiscount)) ?>%</span>
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
+            <?php if (!$isAnnual): ?>
             <p class="text-label-sm text-on-surface-variant mb-lg"><?= $displayCurrency === 'PKR' ? sanitize(paypak_supported_methods_label()) : 'Stripe · USD' ?></p>
+            <?php else: ?>
+            <p class="text-label-sm text-on-surface-variant mb-lg">Stripe · USD · annual billing</p>
+            <?php endif; ?>
         <?php endif; ?>
         <ul class="space-y-sm text-body-md mb-xl">
             <?php foreach ($plan['features'] as $f): ?>

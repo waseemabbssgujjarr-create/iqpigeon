@@ -758,6 +758,13 @@ function get_plan_prices(): array
 {
     $prices = [];
     foreach (get_plans() as $slug => $plan) {
+        if (($plan['billing_interval'] ?? 'month') === 'year') {
+            $annual = (int) ($plan['price_usd'] ?? 0);
+            if ($annual > 0) {
+                $prices[$slug] = (int) round($annual / 12);
+            }
+            continue;
+        }
         if (isset($plan['price']) && is_numeric($plan['price'])) {
             $prices[$slug] = (int) $plan['price'];
         }
@@ -779,13 +786,26 @@ function normalize_plan_slug(string $plan): string
 }
 
 /**
+ * Plan limits for annual SKUs mirror their monthly tier.
+ */
+function plan_limits_slug(string $plan): string
+{
+    $plan = normalize_plan_slug($plan);
+
+    return match ($plan) {
+        'starter_annual' => 'starter',
+        default          => $plan,
+    };
+}
+
+/**
  * Get plan limits for feature gating.
  *
  * @return array{bots: int, chats: int, leads: int}
  */
 function get_plan_limits(string $plan): array
 {
-    $plan = normalize_plan_slug($plan);
+    $plan = plan_limits_slug(normalize_plan_slug($plan));
 
     $limits = [
         'starter'    => ['bots' => 1, 'chats' => 100, 'leads' => PHP_INT_MAX],

@@ -242,9 +242,25 @@ function agent_core_pipeline(array $ctx): array
                 'validation' => 'failed',
                 'reason'     => preg_replace('/[^a-z0-9_\-]/i', '', (string) ($check['reason'] ?? '')) ?: 'failed',
             ]);
-
-            return $fail('validation_failed', false, $intent, $plan, $toolResults);
+            $botLw = is_array($turn['bot'] ?? null) ? $turn['bot'] : [];
+            require_once dirname(__DIR__) . '/conversation-mind.php';
+            $safeLive = function_exists('conversation_mind_unverified_live_reply')
+                ? conversation_mind_unverified_live_reply($botLw)
+                : '';
+            $safeLive = trim($safeLive);
+            if ($safeLive !== '') {
+                $checkSafe = agent_core_stage_validate($safeLive, $turn, $intent, $plan, $conv);
+                if (!empty($checkSafe['ok'])) {
+                    $draft = $safeLive;
+                    $check = $checkSafe;
+                } else {
+                    return $fail('validation_failed', false, $intent, $plan, $toolResults);
+                }
+            } else {
+                return $fail('validation_failed', false, $intent, $plan, $toolResults);
+            }
         }
+        if (empty($check['ok'])) {
         $hint = '';
         if (function_exists('conversation_validation_retry_hint')) {
             $hint = conversation_validation_retry_hint((string) ($check['reason'] ?? ''), (string) ($turn['text'] ?? ''));
@@ -269,6 +285,7 @@ function agent_core_pipeline(array $ctx): array
             ]);
 
             return $fail('validation_failed', false, $intent, $plan, $toolResults);
+        }
         }
     }
     $draft = trim(agent_core_stage_humanize($draft, $pack, $plan, $turn, $conv, $toolResults));

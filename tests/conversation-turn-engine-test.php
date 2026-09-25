@@ -341,6 +341,57 @@ assert_test(
     && !str_contains($webhookSrc, 'Inline send before Meta ACK'),
     'TEST 38k webhook acks Meta immediately then processes async'
 );
+$ackPosRace = strpos($webhookSrc, 'wa_webhook_ack_meta();');
+$dispatchCount = substr_count($webhookSrc, 'turn_engine_dispatch_worker(');
+$firstDispatchPos = strpos($webhookSrc, 'turn_engine_dispatch_worker(');
+assert_test(
+    $dispatchCount === 1
+    && $ackPosRace !== false
+    && $firstDispatchPos !== false
+    && $firstDispatchPos > $ackPosRace
+    && !str_contains($webhookSrc, 'pre-ACK')
+    && !str_contains($webhookSrc, 'pre_ack_detached'),
+    'TEST 49A webhook dispatches worker exactly once and only after Meta ACK'
+);
+assert_test(
+    str_contains($webhookSrc, 'worker_dispatch_attempt')
+    && str_contains($webhookSrc, 'worker_dispatch_success')
+    && str_contains($webhookSrc, 'worker_dispatch_failed_inline_fallback')
+    && str_contains($webhookSrc, 'inline_processing_skipped_worker_owner')
+    && str_contains($webhookSrc, '$workerDispatchSucceeded'),
+    'TEST 49B webhook logs worker vs inline orchestration'
+);
+assert_test(
+    str_contains($webhookSrc, 'if ($workerDispatchSucceeded)')
+    && str_contains($webhookSrc, 'inline_processing_skipped_worker_owner')
+    && preg_match('/if\s*\(\$workerDispatchSucceeded\)\s*\{[^}]*continue;/s', $webhookSrc) === 1,
+    'TEST 49C inline send_leads_now skipped when worker dispatch succeeded'
+);
+assert_test(
+    str_contains($webhookSrc, 'Post-ACK compose (inline fallback)')
+    && str_contains($webhookSrc, 'turn_engine_send_leads_now($leadIds'),
+    'TEST 49D inline send_leads_now remains fallback when worker dispatch fails'
+);
+assert_test(
+    str_contains($workerRecover, 'turn_engine_send_leads_now([$leadId]')
+    && !str_contains($workerRecover, 'turn_engine_process_turn('),
+    'TEST 49E worker still uses send_leads_now not legacy process_turn'
+);
+assert_test(
+    !preg_match('/turn_engine_dispatch_worker[^;]+;\s*[\s\S]{0,800}turn_engine_send_leads_now/s', $webhookSrc)
+    || str_contains($webhookSrc, 'if ($workerDispatchSucceeded)'),
+    'TEST 49F webhook does not unconditionally run worker dispatch then inline send'
+);
+$sendNowFnRace = strpos($engineSrc, 'function turn_engine_send_leads_now');
+$sendNowSrcRace = $sendNowFnRace !== false ? substr($engineSrc, $sendNowFnRace, 9000) : '';
+assert_test(
+    str_contains($sendNowSrcRace, 'whatsapp_acquire_lead_reply_lock($leadId, 0)')
+    && is_file($root . '/includes/whatsapp-inbound.php')
+    && str_contains(file_get_contents($root . '/includes/whatsapp-inbound.php') ?: '', 'function whatsapp_acquire_lead_reply_lock')
+    && str_contains(file_get_contents($root . '/includes/whatsapp-inbound.php') ?: '', 'function whatsapp_release_lead_reply_lock')
+    && !str_contains($webhookSrc, 'whatsapp_acquire_lead_reply_lock'),
+    'TEST 49G lead advisory lock in send_leads_now; webhook does not acquire/release locks'
+);
 assert_test(
     function_exists('security_sanitize_html_output')
     && function_exists('security_output_is_webhook_script')

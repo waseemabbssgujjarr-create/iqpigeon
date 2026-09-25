@@ -183,9 +183,15 @@ function agent_core_compose_live_world_draft(
     $answer = trim(conversation_mind_live_answer($bot, $userMessage, $mindCtx, $search));
     if ($answer !== '') {
         agent_core_compose_widget_log('live_world_answer', $turnCtx);
+
+        return $answer;
     }
 
-    return $answer;
+    agent_core_compose_widget_log('live_world_unverified_after_openai', $turnCtx);
+
+    return function_exists('conversation_mind_unverified_live_reply')
+        ? conversation_mind_unverified_live_reply($bot)
+        : '';
 }
 
 /**
@@ -252,6 +258,18 @@ function agent_core_compose(array $pack, array $plan, array $toolResults, array 
     $liveDraft = agent_core_compose_live_world_draft($pack, $plan, $toolResults, $turnCtx, $conv, $userMessage, $bot, $leadId);
     if ($liveDraft !== '') {
         return mb_substr($liveDraft, 0, 900);
+    }
+    if ((string) ($plan['outcome'] ?? '') === 'LIVE_WORLD') {
+        require_once dirname(__DIR__) . '/conversation-mind.php';
+        agent_core_compose_widget_log('live_world_terminal_unverified', $turnCtx);
+
+        return mb_substr(
+            function_exists('conversation_mind_unverified_live_reply')
+                ? conversation_mind_unverified_live_reply($bot)
+                : "I couldn't verify the latest information just now.",
+            0,
+            900
+        );
     }
 
     // Budget contract: wa_skip_openai blocks the old human-layer OpenAI helpers,

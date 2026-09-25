@@ -66,6 +66,8 @@ function integration_settings_defaults(): array
 
         'stripe_price_agency'      => '',
 
+        'stripe_price_starter_annual' => '',
+
         'paypak_sandbox'           => true,
 
         'paypak_merchant_name'     => '',
@@ -163,6 +165,8 @@ function integration_public_field_map(): array
         'stripe_price_growth'    => 'STRIPE_PRICE_GROWTH',
 
         'stripe_price_agency'    => 'STRIPE_PRICE_AGENCY',
+
+        'stripe_price_starter_annual' => 'STRIPE_PRICE_STARTER_ANNUAL',
 
         'paypak_merchant_name'   => 'PAYPAK_MERCHANT_NAME',
 
@@ -308,6 +312,8 @@ function save_integration_settings(array $settings, array $newSecrets = []): voi
         'stripe_price_growth'       => trim((string) ($settings['stripe_price_growth'] ?? '')),
 
         'stripe_price_agency'       => trim((string) ($settings['stripe_price_agency'] ?? '')),
+
+        'stripe_price_starter_annual' => trim((string) ($settings['stripe_price_starter_annual'] ?? '')),
 
         'paypak_sandbox'            => !empty($settings['paypak_sandbox']),
 

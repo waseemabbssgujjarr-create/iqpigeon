@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf($_POST['csrf_token'] ??
     $action = $_POST['action'] ?? '';
 
     if ($action === 'checkout') {
-        $plan = in_array($_POST['plan'] ?? '', ['starter', 'pro', 'growth'], true) ? $_POST['plan'] : 'starter';
+        $plan = in_array($_POST['plan'] ?? '', ['starter', 'starter_annual', 'pro', 'growth'], true) ? $_POST['plan'] : 'starter';
         if ($plan === 'growth') {
             $plan = 'pro';
         }

@@ -33,7 +33,7 @@ function payment_create_checkout(int $userId, string $plan): array
 {
     ensure_payment_schema();
 
-    $gateway = payment_gateway();
+    $gateway = normalize_plan_slug($plan) === 'starter_annual' ? 'stripe' : payment_gateway();
     if ($gateway === 'paypak') {
         $result = paypak_create_subscription_checkout($userId, $plan);
         if (!$result['success']) {

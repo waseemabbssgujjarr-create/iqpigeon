@@ -150,7 +150,10 @@ foreach ($plans as $key => $plan):
     $isCurrent = $planKey === $key || ($planKey === 'growth' && $key === 'pro');
     $popular = !empty($plan['popular']);
     $contact = !empty($plan['contact_only']);
+    $isAnnual = plan_is_annual($plan);
+    $annualDiscount = $plan['annual_discount_percent'] ?? plan_annual_discount_percent($plan);
     $priceLabel = $contact ? 'Custom' : sanitize(format_plan_price($plan['display_price'] ?? null, $billingCurrency));
+    $billedAmount = $plan['billed_amount'] ?? plan_billed_amount($plan, $billingCurrency);
     $border = $popular ? 'border-2 border-[#1FA855]' : 'border border-slate-200';
 ?>
   <div class="relative bg-white rounded-xl <?= $border ?> p-5" style="min-height:320px;display:flex;flex-direction:column">
@@ -159,7 +162,17 @@ foreach ($plans as $key => $plan):
     <?php endif; ?>
     <div class="text-[16px] font-bold text-slate-800"><?= sanitize((string) $plan['name']) ?></div>
     <div class="text-[12.5px] text-slate-400 mb-3"><?= $contact ? 'for larger teams' : 'for growing businesses' ?></div>
-    <div class="text-[26px] font-extrabold <?= $contact ? '' : 'text-slate-800' ?> mb-4 <?= $contact ? 'text-violet-600' : '' ?>"><?= $priceLabel ?><?php if (!$contact): ?> <span class="text-[13px] font-normal text-slate-400">/ month</span><?php endif; ?></div>
+    <div class="text-[26px] font-extrabold <?= $contact ? '' : 'text-slate-800' ?> mb-1 <?= $contact ? 'text-violet-600' : '' ?>"><?= $priceLabel ?><?php if (!$contact): ?> <span class="text-[13px] font-normal text-slate-400">/ month</span><?php endif; ?></div>
+    <?php if ($isAnnual && $billedAmount !== null): ?>
+    <div class="text-[12px] text-slate-500 mb-4">
+      Billed <?= sanitize(format_plan_price($billedAmount, $billingCurrency)) ?>/year
+      <?php if ($annualDiscount !== null && $annualDiscount > 0): ?>
+        · Save <?= sanitize((string) (int) round($annualDiscount)) ?>%
+      <?php endif; ?>
+    </div>
+    <?php else: ?>
+    <div class="mb-4"></div>
+    <?php endif; ?>
     <?php if ($contact): ?>
       <a href="/contact"
         class="plan-card-btn"

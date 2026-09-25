@@ -17,6 +17,15 @@ require_once __DIR__ . '/integration-settings.php';
 function stripe_price_id(string $plan): string
 {
     switch (normalize_plan_slug($plan)) {
+        case 'starter_annual':
+            if (integration_config_bool('STRIPE_ANNUAL_USE_TEST_PRICE', false)) {
+                $test = integration_config('STRIPE_PRICE_STARTER_ANNUAL_TEST');
+                if ($test !== '') {
+                    return $test;
+                }
+            }
+
+            return integration_config('STRIPE_PRICE_STARTER_ANNUAL');
         case 'pro':
             $pro = integration_config('STRIPE_PRICE_PRO');
             return $pro !== '' ? $pro : integration_config('STRIPE_PRICE_GROWTH');

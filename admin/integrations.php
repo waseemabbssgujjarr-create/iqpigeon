@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf($_POST['csrf_token'] ??
                 'stripe_price_pro'            => $_POST['stripe_price_pro'] ?? '',
                 'stripe_price_growth'         => $_POST['stripe_price_growth'] ?? '',
                 'stripe_price_agency'         => $_POST['stripe_price_agency'] ?? '',
+                'stripe_price_starter_annual' => $_POST['stripe_price_starter_annual'] ?? '',
                 'paypak_sandbox'              => !empty($_POST['paypak_sandbox']),
                 'paypak_merchant_name'        => $_POST['paypak_merchant_name'] ?? '',
                 'paypak_default_mobile'       => $_POST['paypak_default_mobile'] ?? '',
@@ -417,8 +418,12 @@ if ($error !== '') {
             <?= $secretField('stripe_webhook_secret', 'Stripe webhook secret') ?>
           </div>
           <div class="grid grid-2">
-            <?php foreach (['starter', 'pro', 'growth', 'agency'] as $plan): ?>
-            <?= $textField('stripe_price_' . $plan, 'Stripe price — ' . $plan, (string) ($integrations['stripe_price_' . $plan] ?: integration_config('STRIPE_PRICE_' . strtoupper($plan)))) ?>
+            <?php foreach (['starter', 'starter_annual', 'pro', 'growth', 'agency'] as $plan): ?>
+            <?php
+                $const = $plan === 'starter_annual' ? 'STRIPE_PRICE_STARTER_ANNUAL' : 'STRIPE_PRICE_' . strtoupper($plan);
+                $hint = $plan === 'starter_annual' ? ' ($190/year; optional STRIPE_PRICE_STARTER_ANNUAL_TEST = $2 for tests)' : '';
+            ?>
+            <?= $textField('stripe_price_' . $plan, 'Stripe price — ' . $plan . $hint, (string) ($integrations['stripe_price_' . $plan] ?? '') ?: integration_config($const)) ?>
             <?php endforeach; ?>
           </div>
           <?= $switchRow('paypak_sandbox', 'PayPak sandbox mode', 'Use PayPak test environment', integration_config_bool('PAYPAK_SANDBOX', true)) ?>

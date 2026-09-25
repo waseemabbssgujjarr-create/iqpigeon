@@ -522,13 +522,11 @@ $GLOBALS['agent_core_test_draft'] = 'Reply with a number from our menu';
 $badVal = agent_core_run($petrolCtx);
 unset($GLOBALS['agent_core_test_draft']);
 ac_assert(
-    empty($badVal['ok'])
-    && trim((string) ($badVal['reply'] ?? '')) === ''
-    && ($badVal['error'] ?? '') === 'validation_failed'
-    && ($badVal['fallback_reason'] ?? '') === 'validation_failed'
-    && ac_compose_path($badVal) === 'webhook_mind'
+    !empty($badVal['ok'])
+    && ac_compose_path($badVal) === 'agent_core'
+    && str_contains(mb_strtolower((string) ($badVal['reply'] ?? '')), "couldn't verify")
     && !str_contains((string) json_encode($badVal), "Got you"),
-    'validation failure after retry → webhook_mind fallback'
+    'LIVE_WORLD invalid draft → safe unverified Core reply (no webhook_mind)'
 );
 
 ac_assert(
@@ -784,7 +782,7 @@ ac_assert(
     && str_contains(mb_strtolower((string) ($emptyCore['reply'] ?? '')), "couldn't verify"),
     '16 LIVE_WORLD without evidence stays on agent_core with transparent fallback'
 );
-ac_assert(ac_compose_path($badVal) === 'webhook_mind', '17 validation failure → fallback');
+ac_assert(ac_compose_path($badVal) === 'agent_core', '17 LIVE_WORLD validation recover stays on Core');
 
 ac_assert(
     AGENT_CORE_ENABLED === false
@@ -918,10 +916,11 @@ $GLOBALS['agent_core_test_draft'] = 'Reply with a number from our menu';
 $valRun = agent_core_run($petrolCtx);
 unset($GLOBALS['agent_core_test_draft']);
 ac_assert(
-    ($valRun['fallback_reason'] ?? '') === 'validation_failed'
+    !empty($valRun['ok'])
+    && ac_compose_path($valRun) === 'agent_core'
     && in_array('CORE_VALIDATE', ac_sink_names(), true)
-    && in_array('CORE_FALLBACK', ac_sink_names(), true),
-    '4 validation failure records fallback_reason=validation_failed'
+    && !in_array('CORE_FALLBACK', ac_sink_names(), true),
+    '4 LIVE_WORLD pitch-steal draft recovers to safe Core reply without CORE_FALLBACK'
 );
 
 $GLOBALS['agent_core_event_sink'] = [];
@@ -1467,7 +1466,6 @@ ac_assert(
 );
 
 $fallbackEvidence = str_repeat('Lahore weather is 33 C today. ', 20);
-$fallbackExpected = mb_substr(trim((string) preg_replace('/\s+/u', ' ', $fallbackEvidence)), 0, 280);
 ac_live_observe_begin();
 $GLOBALS['conversation_mind_test_live_openai'] = ['success' => false, 'content' => ''];
 $fbLive = conversation_mind_live_answer($restaurant, 'weather ask', ['history' => []], [
@@ -1479,18 +1477,17 @@ $fbEvent = ac_sink_last('LIVE_ANSWER_FALLBACK');
 $fbBlob = ac_sink_blob();
 unset($GLOBALS['conversation_mind_test_live_openai']);
 ac_assert(
-    $fbLive === $fallbackExpected
-    && mb_strlen($fbLive) === 280
+    $fbLive === ''
     && in_array('LIVE_ANSWER_START', ac_sink_names(), true)
     && in_array('LIVE_ANSWER_FALLBACK', ac_sink_names(), true)
     && ($fbEvent['live_answer_used'] ?? true) === false
-    && ($fbEvent['live_answer_source'] ?? '') === 'evidence_fallback'
-    && ($fbEvent['live_answer_chars'] ?? 0) === 280
+    && ($fbEvent['live_answer_source'] ?? '') === 'none'
+    && ($fbEvent['live_answer_chars'] ?? -1) === 0
     && ($fbEvent['openai_call_ok'] ?? true) === false
     && ($fbEvent['openai_call_empty'] ?? false) === true
     && !str_contains($fbBlob, $fallbackEvidence)
     && !str_contains($fbBlob, mb_substr($fallbackEvidence, 0, 60)),
-    'LA-G empty live_answer: source=evidence_fallback used=false chars=fallback length'
+    'LA-G OpenAI fail: no evidence slice; caller uses unverified live reply'
 );
 
 ac_live_observe_begin();
