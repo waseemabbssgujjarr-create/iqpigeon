@@ -63,6 +63,56 @@ function mycrm_iqpigeon_request(string $method, string $path, ?array $json = nul
 }
 
 /**
+ * @param  array{status?: int, body?: array<string, mixed>|null, error?: string|null}  $resp
+ * @return array{http_status: int, code: string, message: string}
+ */
+function mycrm_iqpigeon_parse_api_error(array $resp): array
+{
+    $httpStatus = (int) ($resp['status'] ?? 0);
+    $body = $resp['body'] ?? null;
+    $message = trim((string) ($resp['error'] ?? 'API error'));
+    $code = 'unknown';
+
+    if (is_array($body) && isset($body['error']) && is_array($body['error'])) {
+        $apiCode = $body['error']['code'] ?? null;
+        if ($apiCode !== null && (string) $apiCode !== '') {
+            $code = (string) $apiCode;
+        }
+        $apiMessage = trim((string) ($body['error']['message'] ?? ''));
+        if ($apiMessage !== '') {
+            $message = $apiMessage;
+        }
+    }
+
+    return [
+        'http_status' => $httpStatus,
+        'code' => $code,
+        'message' => $message !== '' ? $message : 'API error',
+    ];
+}
+
+/**
+ * @param  array<string, mixed>  $result  Send helper result when ok=false.
+ */
+function mycrm_iqpigeon_format_api_error_line(array $result): string
+{
+    $http = (int) ($result['http_status'] ?? $result['status'] ?? 0);
+    $code = trim((string) ($result['error_code'] ?? 'unknown'));
+    if ($code === '') {
+        $code = 'unknown';
+    }
+    $message = trim((string) ($result['error'] ?? 'Unknown error'));
+
+    $line = 'HTTP '.($http > 0 ? (string) $http : '?').' — code '.$code.' — '.$message;
+    $requestId = trim((string) ($result['request_id'] ?? ''));
+    if ($requestId !== '') {
+        $line .= ' (request_id '.$requestId.')';
+    }
+
+    return $line;
+}
+
+/**
  * @return array{ok: bool, partner?: array<string, mixed>, error?: string, request_id?: string|null}
  */
 function mycrm_iqpigeon_test_connection(): array
@@ -133,12 +183,13 @@ function mycrm_iqpigeon_send_text(string $to, string $body, string $idempotencyK
     $requestId = is_array($resp['body']) ? ($resp['body']['request_id'] ?? null) : null;
 
     if (!$resp['ok']) {
-        $code = is_array($resp['body']) ? (string) ($resp['body']['error']['code'] ?? 'api_error') : 'api_error';
+        $parsed = mycrm_iqpigeon_parse_api_error($resp);
 
         return [
             'ok' => false,
-            'error' => $resp['error'] ?? 'Send failed',
-            'error_code' => $code,
+            'error' => $parsed['message'],
+            'error_code' => $parsed['code'],
+            'http_status' => $parsed['http_status'],
             'request_id' => $requestId,
             'status' => $resp['status'],
         ];
@@ -209,12 +260,13 @@ function mycrm_iqpigeon_send_template(string $to, array $template, string $idemp
     $requestId = is_array($resp['body']) ? ($resp['body']['request_id'] ?? null) : null;
 
     if (!$resp['ok']) {
-        $code = is_array($resp['body']) ? (string) ($resp['body']['error']['code'] ?? 'api_error') : 'api_error';
+        $parsed = mycrm_iqpigeon_parse_api_error($resp);
 
         return [
             'ok' => false,
-            'error' => $resp['error'] ?? 'Send failed',
-            'error_code' => $code,
+            'error' => $parsed['message'],
+            'error_code' => $parsed['code'],
+            'http_status' => $parsed['http_status'],
             'request_id' => $requestId,
             'status' => $resp['status'],
         ];
@@ -295,6 +347,10 @@ function mycrm_iqpigeon_wait_for_send_status(string $uuid, int $maxAttempts = 8,
  */
 function mycrm_iqpigeon_format_send_flash(array $result, string $verb): string
 {
+    if (!($result['ok'] ?? false)) {
+        return $verb.' send failed: '.mycrm_iqpigeon_format_api_error_line($result);
+    }
+
     $mid = (string) ($result['message']['id'] ?? 'n/a');
     $req = (string) ($result['request_id'] ?? 'n/a');
     $status = (string) ($result['message']['status'] ?? 'unknown');

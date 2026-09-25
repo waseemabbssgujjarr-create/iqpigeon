@@ -48,10 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['mycrm_flash'] = mycrm_is_iqpigeon_api_mode()
                 ? mycrm_iqpigeon_format_send_flash($send, 'Text message')
                 : 'Sent via Direct Meta';
+        } elseif (mycrm_is_iqpigeon_api_mode()) {
+            $_SESSION['mycrm_flash'] = mycrm_iqpigeon_format_send_flash($send, 'Text message');
         } else {
-            $_SESSION['mycrm_flash'] = 'Send failed: ' . ($send['error'] ?? 'unknown')
-                . (isset($send['error_code']) ? ' [' . $send['error_code'] . ']' : '')
-                . (isset($send['request_id']) ? ' request_id=' . $send['request_id'] : '');
+            $_SESSION['mycrm_flash'] = 'Send failed: ' . ($send['error'] ?? 'unknown');
         }
     }
     if ($action === 'send_template') {
@@ -94,12 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $send = mycrm_send_template_message($to, $template, $idempotency);
             }
-            if (!empty($send) && ($send['ok'] ?? false)) {
+            if (!empty($send)) {
                 $_SESSION['mycrm_flash'] = mycrm_iqpigeon_format_send_flash($send, 'Template');
-            } elseif (!empty($send)) {
-                $_SESSION['mycrm_flash'] = 'Template send failed: ' . ($send['error'] ?? 'unknown')
-                    . (isset($send['error_code']) ? ' [' . $send['error_code'] . ']' : '')
-                    . (isset($send['request_id']) ? ' request_id=' . $send['request_id'] : '');
             }
         }
     }
