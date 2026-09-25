@@ -211,17 +211,17 @@ $onboardUrl = whatsapp_embedded_onboard_url();
 $extrasJson = whatsapp_embedded_signup_extras_json();
 $extras = json_decode($extrasJson, true) ?: [];
 
-$extrasOk = ($extras['featureType'] ?? '') === 'whatsapp_business_app_onboarding'
-    && ($extras['sessionInfoVersion'] ?? '') === '3'
-    && ($extras['version'] ?? '') === 'v4';
+$extrasOk = ($extras['version'] ?? '') === 'v4'
+    && ! array_key_exists('featureType', $extras)
+    && ! array_key_exists('sessionInfoVersion', $extras);
 
 lc_add(
     'signup_extras',
     'critical',
-    'Embedded Signup extras (coexistence)',
+    'Embedded Signup v4 extras (no legacy coexistence keys)',
     $extrasOk ? 'pass' : 'fail',
     'extras = ' . $extrasJson,
-    'Must include featureType=whatsapp_business_app_onboarding, sessionInfoVersion=3, version=v4'
+    'Embedded Signup v4 must use only version=v4 (remove featureType and sessionInfoVersion per Meta)'
 );
 
 lc_add(
@@ -238,7 +238,8 @@ lc_add(
     'critical',
     'Connect button uses business.facebook.com onboard (not dialog/oauth)',
     str_contains(whatsapp_oauth_launch_url('test'), 'business.facebook.com/messaging/whatsapp/onboard')
-        && str_contains(whatsapp_oauth_launch_url('test'), 'featureType')
+        && str_contains(whatsapp_oauth_launch_url('test'), 'version')
+        && ! str_contains(whatsapp_oauth_launch_url('test'), 'featureType')
         ? 'pass' : 'fail',
     mb_substr(whatsapp_oauth_launch_url('test'), 0, 120) . '…',
     'Deploy latest includes/whatsapp-oauth.php and client/whatsapp-oauth-start.php'

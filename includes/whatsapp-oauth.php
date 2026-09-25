@@ -594,17 +594,14 @@ function whatsapp_oauth_friendly_error(string $error): string
 }
 
 /**
- * Embedded Signup extras for Coexistence (existing WhatsApp Business App numbers).
+ * Embedded Signup v4 extras (coexistence enabled by Meta for v4 — do not pass featureType or sessionInfoVersion).
  *
  * @return array<string, mixed>
  */
 function whatsapp_embedded_signup_extras(): array
 {
     return [
-        'setup'              => (object) [],
-        'featureType'        => 'whatsapp_business_app_onboarding',
-        'sessionInfoVersion' => '3',
-        'version'            => 'v4',
+        'version' => 'v4',
     ];
 }
 

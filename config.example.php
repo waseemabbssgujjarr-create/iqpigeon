@@ -56,9 +56,9 @@ define('META_GRAPH_API_VERSION', 'v21.0');
 define('WEBHOOK_VERIFY_TOKEN', 'your-webhook-verify-token');
 define('APP_URL', 'https://iqpigeon.com');
 define('ENCRYPTION_KEY', 'change-this-to-random-32-chars!!');
-// Extras must include featureType=whatsapp_business_app_onboarding for coexistence.
+// Embedded Signup v4: extras are {"version":"v4"} only (coexistence is automatic on v4).
 // whatsapp_embedded_onboard_url() builds this automatically; override only if needed.
-define('META_EMBEDDED_SIGNUP_URL', 'https://business.facebook.com/messaging/whatsapp/onboard/?app_id=YOUR_APP_ID&config_id=YOUR_CONFIG_ID&extras=%7B%22version%22%3A%22v4%22%2C%22sessionInfoVersion%22%3A%223%22%2C%22featureType%22%3A%22whatsapp_business_app_onboarding%22%7D');
+define('META_EMBEDDED_SIGNUP_URL', 'https://business.facebook.com/messaging/whatsapp/onboard/?app_id=YOUR_APP_ID&config_id=YOUR_CONFIG_ID&extras=%7B%22version%22%3A%22v4%22%7D');
 define('WHATSAPP_VERIFY_TOKEN', WEBHOOK_VERIFY_TOKEN);
 // Forward verified Meta webhooks (messages + statuses) to WhatsApp API SaaS — same Meta app/signature.
 define('WHATSAPP_API_WEBHOOK_BRIDGE_ENABLED', false);
