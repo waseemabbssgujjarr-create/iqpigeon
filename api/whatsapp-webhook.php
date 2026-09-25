@@ -84,6 +84,7 @@ require_once __DIR__ . '/../includes/whatsapp-inbound.php';
 require_once __DIR__ . '/../includes/whatsapp-token.php';
 require_once __DIR__ . '/../includes/whatsapp-oauth.php';
 require_once __DIR__ . '/../includes/whatsapp-reply-debug-log.php';
+require_once __DIR__ . '/../includes/whatsapp-api-webhook-bridge.php';
 
 function wa_webhook_log(string $message, array $context = []): void
 {
@@ -171,6 +172,8 @@ if (!$data || empty($data['entry'])) {
     wa_webhook_ack_meta();
     exit;
 }
+
+$whatsappApiBridgePlan = whatsapp_api_bridge_plan_forward(is_array($data) ? $data : []);
 
 /** @var array<int, array{bot: array<string, mixed>, phone_id: string, token: string, lead_ids: array<int, int>}> $jobs */
 $jobs = [];
@@ -356,21 +359,27 @@ foreach ($jobs as $job) {
 }
 $allLeadIds = array_values(array_unique(array_filter($allLeadIds)));
 
-$workerDispatched = false;
-if ($allLeadIds !== [] && function_exists('turn_engine_dispatch_worker')) {
+wa_webhook_ack_meta();
+
+if (is_array($whatsappApiBridgePlan) && !empty($whatsappApiBridgePlan['forward'])) {
     try {
-        $workerDispatched = turn_engine_dispatch_worker($allLeadIds, false);
-        wa_webhook_log('Async worker detached (pre-ACK)', [
-            'leads'      => $allLeadIds,
-            'dispatched' => $workerDispatched,
-            'stage'      => 'pre_ack_detached',
+        whatsapp_api_bridge_forward_verified_payload(
+            $payload,
+            (string) ($signature ?? ''),
+            $eventId,
+            (string) ($whatsappApiBridgePlan['phone_number_id'] ?? ''),
+            (string) ($whatsappApiBridgePlan['event_type'] ?? 'unknown'),
+        );
+    } catch (Throwable $bridgeErr) {
+        wa_webhook_log('WhatsApp API bridge exception', [
+            'event_id' => $eventId,
+            'phone_number_id' => (string) ($whatsappApiBridgePlan['phone_number_id'] ?? ''),
+            'event_type' => (string) ($whatsappApiBridgePlan['event_type'] ?? ''),
+            'error' => substr($bridgeErr->getMessage(), 0, 120),
+            'stage' => 'whatsapp_api_bridge',
         ]);
-    } catch (Throwable $e) {
-        wa_webhook_log('Async worker pre-ACK dispatch failed', ['error' => $e->getMessage(), 'leads' => $allLeadIds]);
     }
 }
-
-wa_webhook_ack_meta();
 
 foreach ($pendingReads as $read) {
     try {
@@ -389,17 +398,28 @@ foreach ($pendingReads as $read) {
     }
 }
 
+$workerDispatchSucceeded = false;
 if ($allLeadIds !== [] && function_exists('turn_engine_dispatch_worker')) {
     try {
-        $dispatched = turn_engine_dispatch_worker($allLeadIds, true);
-        wa_webhook_log('Async worker dispatched', [
-            'leads'      => $allLeadIds,
-            'dispatched' => $dispatched,
-            'pre_ack'    => $workerDispatched,
-            'stage'      => 'after_ack',
+        wa_webhook_log('worker_dispatch_attempt', [
+            'leads' => $allLeadIds,
+            'stage' => 'after_ack',
         ]);
+        $workerDispatchSucceeded = turn_engine_dispatch_worker($allLeadIds, true);
+        if ($workerDispatchSucceeded) {
+            wa_webhook_log('worker_dispatch_success', [
+                'leads' => $allLeadIds,
+            ]);
+        } else {
+            wa_webhook_log('worker_dispatch_failed_inline_fallback', [
+                'leads' => $allLeadIds,
+            ]);
+        }
     } catch (Throwable $e) {
-        wa_webhook_log('Async worker dispatch failed', ['error' => $e->getMessage(), 'leads' => $allLeadIds]);
+        wa_webhook_log('worker_dispatch_failed_inline_fallback', [
+            'leads' => $allLeadIds,
+            'error' => $e->getMessage(),
+        ]);
     }
 }
 
@@ -408,7 +428,13 @@ foreach ($jobs as $job) {
     if ($leadIds === []) {
         continue;
     }
-    wa_webhook_log('Post-ACK compose (same process backup)', ['leads' => $leadIds]);
+    if ($workerDispatchSucceeded) {
+        wa_webhook_log('inline_processing_skipped_worker_owner', [
+            'leads' => $leadIds,
+        ]);
+        continue;
+    }
+    wa_webhook_log('Post-ACK compose (inline fallback)', ['leads' => $leadIds]);
     try {
         $sentNow = turn_engine_send_leads_now($leadIds, $job['bot'], $job['phone_id'], $job['token']);
         wa_webhook_log('Post-ACK compose result', is_array($sentNow) ? $sentNow : ['raw' => $sentNow]);

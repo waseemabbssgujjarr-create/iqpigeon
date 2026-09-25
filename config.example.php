@@ -25,6 +25,9 @@ define('STRIPE_PRICE_BUSINESS', '');         // required for $149 Business check
 define('STRIPE_PRICE_STARTER', '');          // legacy unused — do not reuse for Starter $29
 define('STRIPE_PRICE_PRO', '');              // legacy unused — do not reuse for Growth
 define('STRIPE_PRICE_AGENCY', '');           // unused — Enterprise is sales/custom
+define('STRIPE_PRICE_STARTER_ANNUAL', '');   // $190/year Starter (Stripe Price ID, interval=year)
+define('STRIPE_PRICE_STARTER_ANNUAL_TEST', ''); // optional $2/year price for checkout tests only
+define('STRIPE_ANNUAL_USE_TEST_PRICE', false);  // true → use TEST price ID instead of ANNUAL (never on production)
 
 // PAYPAK — Pakistan billing (JazzCash, Easypaisa, PayPak cards, banks via PayFast gateway)
 // Sign up at https://gopayfast.com — use sandbox credentials for testing
@@ -57,6 +60,12 @@ define('ENCRYPTION_KEY', 'change-this-to-random-32-chars!!');
 // whatsapp_embedded_onboard_url() builds this automatically; override only if needed.
 define('META_EMBEDDED_SIGNUP_URL', 'https://business.facebook.com/messaging/whatsapp/onboard/?app_id=YOUR_APP_ID&config_id=YOUR_CONFIG_ID&extras=%7B%22version%22%3A%22v4%22%2C%22sessionInfoVersion%22%3A%223%22%2C%22featureType%22%3A%22whatsapp_business_app_onboarding%22%7D');
 define('WHATSAPP_VERIFY_TOKEN', WEBHOOK_VERIFY_TOKEN);
+// Forward verified Meta webhooks (messages + statuses) to WhatsApp API SaaS — same Meta app/signature.
+define('WHATSAPP_API_WEBHOOK_BRIDGE_ENABLED', false);
+define('WHATSAPP_API_WEBHOOK_BRIDGE_URL', 'https://whatsappapi.iqpigeon.com/webhooks/meta');
+define('WHATSAPP_API_BRIDGE_PHONE_NUMBER_IDS', ''); // comma-separated Meta phone_number_id values
+define('WHATSAPP_API_BRIDGE_WABA_IDS', ''); // optional comma-separated WABA ids
+define('WHATSAPP_API_WEBHOOK_BRIDGE_TIMEOUT_MS', 2500);
 define('INSTAGRAM_VERIFY_TOKEN', 'your_random_verify_token_ig');
 
 // APP — iqpigeon.com production (see config.local.php on server)

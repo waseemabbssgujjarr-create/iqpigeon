@@ -13,8 +13,8 @@ session_start();
 
 require_once __DIR__ . '/includes/mycrm/config.php';
 require_once __DIR__ . '/includes/mycrm/storage.php';
-require_once __DIR__ . '/includes/mycrm/send.php';
 require_once __DIR__ . '/includes/mycrm/iqpigeon-api-client.php';
+require_once __DIR__ . '/includes/mycrm/send.php';
 
 function mycrm_h(string $s): string
 {
@@ -25,6 +25,9 @@ $flash = $_SESSION['mycrm_flash'] ?? null;
 unset($_SESSION['mycrm_flash']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_once __DIR__ . '/includes/mycrm/iqpigeon-api-client.php';
+    require_once __DIR__ . '/includes/mycrm/send.php';
+
     $action = (string) ($_POST['action'] ?? '');
     if (($action === 'test_api' || $action === 'refresh_connection') && mycrm_is_iqpigeon_api_mode()) {
         $test = mycrm_iqpigeon_test_connection();
@@ -42,14 +45,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $send = mycrm_send_text_message($to, $body, $idempotency);
         if ($send['ok'] ?? false) {
-            $mid = $send['message']['id'] ?? ($send['data']['messages'][0]['id'] ?? 'ok');
             $_SESSION['mycrm_flash'] = mycrm_is_iqpigeon_api_mode()
-                ? 'Sent via IQPigeon API (message ' . $mid . ', request_id ' . ($send['request_id'] ?? 'n/a') . ')'
+                ? mycrm_iqpigeon_format_send_flash($send, 'Text message')
                 : 'Sent via Direct Meta';
         } else {
             $_SESSION['mycrm_flash'] = 'Send failed: ' . ($send['error'] ?? 'unknown')
                 . (isset($send['error_code']) ? ' [' . $send['error_code'] . ']' : '')
                 . (isset($send['request_id']) ? ' request_id=' . $send['request_id'] : '');
+        }
+    }
+    if ($action === 'send_template') {
+        $to = trim((string) ($_POST['template_to'] ?? ''));
+        $templateName = trim((string) ($_POST['template_name'] ?? ''));
+        $languageCode = trim((string) ($_POST['template_language'] ?? ''));
+        $componentsRaw = trim((string) ($_POST['template_components_json'] ?? ''));
+        $idempotency = trim((string) ($_POST['template_idempotency_key'] ?? ''));
+        if ($idempotency === '') {
+            $idempotency = 'mycrm-tpl-' . bin2hex(random_bytes(8));
+        }
+
+        if ($to === '' || $templateName === '' || $languageCode === '') {
+            $_SESSION['mycrm_flash'] = 'Template send failed: recipient, template name, and language code are required.';
+        } elseif (!mycrm_is_iqpigeon_api_mode()) {
+            $_SESSION['mycrm_flash'] = 'Template send failed: requires IQPigeon API transport (iqpigeon_api).';
+        } else {
+            $template = [
+                'name' => $templateName,
+                'language' => ['code' => $languageCode],
+            ];
+            if ($componentsRaw !== '') {
+                try {
+                    $decoded = json_decode($componentsRaw, true, 512, JSON_THROW_ON_ERROR);
+                } catch (JsonException) {
+                    $_SESSION['mycrm_flash'] = 'Template send failed: components JSON is invalid.';
+                    header('Location: /mycrm', true, 303);
+                    exit;
+                }
+                if (!is_array($decoded)) {
+                    $_SESSION['mycrm_flash'] = 'Template send failed: components JSON must be a JSON array.';
+                    header('Location: /mycrm', true, 303);
+                    exit;
+                }
+                $template['components'] = $decoded;
+            }
+
+            if (!function_exists('mycrm_send_template_message')) {
+                $_SESSION['mycrm_flash'] = 'Template send failed: send helpers are not loaded (deploy includes/mycrm/send.php).';
+            } else {
+                $send = mycrm_send_template_message($to, $template, $idempotency);
+            }
+            if (!empty($send) && ($send['ok'] ?? false)) {
+                $_SESSION['mycrm_flash'] = mycrm_iqpigeon_format_send_flash($send, 'Template');
+            } elseif (!empty($send)) {
+                $_SESSION['mycrm_flash'] = 'Template send failed: ' . ($send['error'] ?? 'unknown')
+                    . (isset($send['error_code']) ? ' [' . $send['error_code'] . ']' : '')
+                    . (isset($send['request_id']) ? ' request_id=' . $send['request_id'] : '');
+            }
         }
     }
     header('Location: /mycrm', true, 303);
@@ -133,6 +184,28 @@ $connPrefix = mycrm_iqpigeon_connection_id() !== '' ? substr(mycrm_iqpigeon_conn
             <label>Idempotency-Key (optional — reuse on retry)</label>
             <input name="idempotency_key" placeholder="mycrm-msg-001">
             <button type="submit">Send via <?= $transport === 'iqpigeon_api' ? 'IQPigeon API' : 'Direct Meta' ?></button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2 style="margin:0 0 8px;font-size:1.1rem">Send template (WhatsApp API)</h2>
+        <p class="muted">POST /api/v1/messages with <code>type: template</code> — for business-initiated messages outside the 24-hour session window.</p>
+        <?php if ($transport !== 'iqpigeon_api'): ?>
+            <p class="muted">Switch <code>MYCRM_TRANSPORT</code> to <code>iqpigeon_api</code> to send templates through the platform.</p>
+        <?php endif; ?>
+        <form method="post">
+            <input type="hidden" name="action" value="send_template">
+            <label>Recipient (E.164)</label>
+            <input name="template_to" required placeholder="+923004522663" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>>
+            <label>Template name (approved on connected WABA)</label>
+            <input name="template_name" required placeholder="hello_world (Meta API name, not display title)" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>>
+            <label>Language code</label>
+            <input name="template_language" required placeholder="en_US" value="en_US" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>>
+            <label>Components JSON (optional — JSON array, e.g. <code>[]</code> or variable parameters)</label>
+            <textarea name="template_components_json" rows="3" placeholder="[]" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>></textarea>
+            <label>Idempotency-Key (optional)</label>
+            <input name="template_idempotency_key" placeholder="mycrm-tpl-001" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>>
+            <button type="submit" <?= $transport !== 'iqpigeon_api' ? 'disabled' : '' ?>>Send Template</button>
         </form>
     </div>
 

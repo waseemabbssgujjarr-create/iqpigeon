@@ -153,3 +153,203 @@ function mycrm_iqpigeon_send_text(string $to, string $body, string $idempotencyK
         'status' => $resp['status'],
     ];
 }
+
+function mycrm_normalize_to_for_api(string $to): string
+{
+    return preg_replace('/\D+/', '', trim($to)) ?? '';
+}
+
+/**
+ * @param  array<string, mixed>  $template  Meta Cloud API template object (name, language, optional components).
+ * @return array{ok: bool, message?: array<string, mixed>, error?: string, error_code?: string, request_id?: string|null, status?: int}
+ */
+function mycrm_iqpigeon_send_template(string $to, array $template, string $idempotencyKey): array
+{
+    $connectionId = mycrm_iqpigeon_connection_id();
+    if ($connectionId === '') {
+        return ['ok' => false, 'error' => 'IQPIGEON_CONNECTION_ID is not configured'];
+    }
+
+    $normalizedTo = mycrm_normalize_to_for_api($to);
+    if ($normalizedTo === '') {
+        return ['ok' => false, 'error' => 'Recipient phone number is empty or invalid'];
+    }
+
+    $name = trim((string) ($template['name'] ?? ''));
+    if ($name === '') {
+        return ['ok' => false, 'error' => 'Template name is required'];
+    }
+
+    $language = $template['language'] ?? null;
+    if (! is_array($language)) {
+        return ['ok' => false, 'error' => 'Template language is required'];
+    }
+
+    $languageCode = trim((string) ($language['code'] ?? ''));
+    if ($languageCode === '') {
+        return ['ok' => false, 'error' => 'Template language code is required'];
+    }
+
+    $payloadTemplate = [
+        'name' => $name,
+        'language' => ['code' => $languageCode],
+    ];
+
+    if (array_key_exists('components', $template) && is_array($template['components'])) {
+        $payloadTemplate['components'] = $template['components'];
+    }
+
+    $resp = mycrm_iqpigeon_request('POST', '/messages', [
+        'connection_id' => $connectionId,
+        'to' => $normalizedTo,
+        'type' => 'template',
+        'template' => $payloadTemplate,
+    ], $idempotencyKey);
+
+    $requestId = is_array($resp['body']) ? ($resp['body']['request_id'] ?? null) : null;
+
+    if (!$resp['ok']) {
+        $code = is_array($resp['body']) ? (string) ($resp['body']['error']['code'] ?? 'api_error') : 'api_error';
+
+        return [
+            'ok' => false,
+            'error' => $resp['error'] ?? 'Send failed',
+            'error_code' => $code,
+            'request_id' => $requestId,
+            'status' => $resp['status'],
+        ];
+    }
+
+    $message = is_array($resp['body']) ? ($resp['body']['data']['message'] ?? null) : null;
+
+    return [
+        'ok' => true,
+        'message' => is_array($message) ? $message : [],
+        'request_id' => $requestId,
+        'status' => $resp['status'],
+    ];
+}
+
+/**
+ * @return array{ok: bool, message?: array<string, mixed>, error?: string, request_id?: string|null}
+ */
+function mycrm_iqpigeon_get_message(string $uuid): array
+{
+    $uuid = trim($uuid);
+    if ($uuid === '') {
+        return ['ok' => false, 'error' => 'Message id is empty'];
+    }
+
+    $resp = mycrm_iqpigeon_request('GET', '/messages/' . rawurlencode($uuid));
+    $requestId = is_array($resp['body']) ? ($resp['body']['request_id'] ?? null) : null;
+
+    if (!$resp['ok']) {
+        return [
+            'ok' => false,
+            'error' => $resp['error'] ?? 'Could not load message',
+            'request_id' => $requestId,
+        ];
+    }
+
+    $message = is_array($resp['body']) ? ($resp['body']['data']['message'] ?? null) : null;
+
+    return [
+        'ok' => true,
+        'message' => is_array($message) ? $message : [],
+        'request_id' => $requestId,
+    ];
+}
+
+/**
+ * Poll until the worker marks the message sent/failed (requires messages.read on the API key).
+ *
+ * @return array{ok: bool, message?: array<string, mixed>, still_queued?: bool, error?: string}
+ */
+function mycrm_iqpigeon_wait_for_send_status(string $uuid, int $maxAttempts = 8, int $sleepMs = 400): array
+{
+    $lastMessage = [];
+
+    for ($i = 0; $i < $maxAttempts; $i++) {
+        if ($i > 0) {
+            usleep($sleepMs * 1000);
+        }
+
+        $got = mycrm_iqpigeon_get_message($uuid);
+        if (!$got['ok']) {
+            return $got;
+        }
+
+        $lastMessage = is_array($got['message'] ?? null) ? $got['message'] : [];
+        $status = (string) ($lastMessage['status'] ?? '');
+
+        if (in_array($status, ['sent', 'failed', 'delivered', 'read'], true)) {
+            return ['ok' => true, 'message' => $lastMessage];
+        }
+    }
+
+    return ['ok' => true, 'message' => $lastMessage, 'still_queued' => true];
+}
+
+/**
+ * @param  array<string, mixed>  $result  Return value from mycrm_send_* helpers.
+ */
+function mycrm_iqpigeon_format_send_flash(array $result, string $verb): string
+{
+    $mid = (string) ($result['message']['id'] ?? 'n/a');
+    $req = (string) ($result['request_id'] ?? 'n/a');
+    $status = (string) ($result['message']['status'] ?? 'unknown');
+
+    if ($status === 'failed') {
+        $detail = trim((string) ($result['message']['failure_message'] ?? ''));
+        if ($detail === '') {
+            $detail = (string) ($result['message']['failure_code'] ?? 'Send failed');
+        }
+
+        return $verb . ' failed (message ' . $mid . '): ' . $detail . ' (request_id ' . $req . ')';
+    }
+
+    if ($status === 'queued') {
+        $note = (string) ($result['delivery_note'] ?? 'Check queue workers on the WhatsApp API server (supervisor / redis).');
+
+        return $verb . ' accepted (message ' . $mid . ') but still queued — not delivered to Meta yet. ' . $note;
+    }
+
+    $wa = trim((string) ($result['message']['wa_message_id'] ?? ''));
+    $waPart = $wa !== '' ? ', wamid ' . $wa : '';
+
+    return $verb . ' ' . $status . ' via IQPigeon API (message ' . $mid . ', status ' . $status . $waPart . ', request_id ' . $req . ')';
+}
+
+/**
+ * @param  array<string, mixed>  $result
+ * @return array<string, mixed>
+ */
+function mycrm_iqpigeon_enrich_send_result(array $result): array
+{
+    if (!($result['ok'] ?? false)) {
+        return $result;
+    }
+
+    $messageId = trim((string) ($result['message']['id'] ?? ''));
+    if ($messageId === '') {
+        return $result;
+    }
+
+    $wait = mycrm_iqpigeon_wait_for_send_status($messageId);
+    if (!($wait['ok'] ?? false)) {
+        $result['delivery_note'] = 'Could not refresh status (API key needs messages.read): '
+            . ($wait['error'] ?? 'unknown');
+
+        return $result;
+    }
+
+    if (is_array($wait['message'] ?? null) && $wait['message'] !== []) {
+        $result['message'] = array_merge($result['message'], $wait['message']);
+    }
+
+    if ($wait['still_queued'] ?? false) {
+        $result['delivery_note'] = 'Still queued after ~3s — queue worker may be stopped on whatsappapi.iqpigeon.com.';
+    }
+
+    return $result;
+}
